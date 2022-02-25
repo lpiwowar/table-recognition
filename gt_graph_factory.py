@@ -4,6 +4,18 @@ import torch
 from torch_geometric.data import Dataset
 
 
+class GTGraphCreator(object):
+    """
+    Class that creates ground truth graph representation.
+
+    This class uses output from OCR and XML CTDAR ground truth
+    data to create
+
+
+    """
+
+    def __init__(self):
+        pass
 class Table(object):
     """
     Class used for loading data from the OCR output.
@@ -27,6 +39,8 @@ class Table(object):
         """
         self.file_name_path = file_name_path
 
+        self.parse_ocr_output()
+
     def parse_ocr_output(self):
         """
         Function that parses the XML representation of the OCR.
@@ -34,8 +48,9 @@ class Table(object):
         :return: None
         """
         xml_root = ET.parse(self.file_name_path)
+        print(xml_root)
 
-
+"""
 class TableDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
@@ -74,3 +89,4 @@ class TableDataset(Dataset):
     def get(self, idx):
         data = torch.load(osp.join(self.processed_dir, f'data_{idx}.pt'))
         return data
+"""

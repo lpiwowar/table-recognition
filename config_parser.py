@@ -11,13 +11,23 @@ class Config(object):
 
     ! - Marks required values in a given block.
 
+    [data_preparation]
+    ocr_output_path      = ! <XML file containing the OCR output>
+    input_path           = ! <directory containing table images>
+    gt_path              = ! <directory containing GT data in XML CTDAR format>
+    train_list           = <text file defining which files should be used for training>
+    test_list            = <text file defining which files should be used for testing>
+    randomize            = <RANDOM: randomly select which files will be used for training/testing>
+    train_ratio          = <RANDOM: what percentage of the data should be used for training>
+    test_ratio           = <RANDOM: what percentage of the data should be used for testing>
+
     [train]
     learning_rate        = <learning rate that should be used for training>
     test_input_data_dir  = ! <path to directory containing test data>
     test_gt_data_dir     = ! <path to directory containing ground truth for test data>
     train_input_data_dir = ! <path to directory containing train data>
     train_gt_data_dir    = ! <path to directory containing ground truth for training data>
-
+    
     [infer]
     input_data_dir = ! <path to directory containing table images>
     """
@@ -30,6 +40,16 @@ class Config(object):
         """
 
         self.config_file_path = config_file_path
+
+        # Dataset preparation
+        self.ocr_output_path = None
+        self.input_path = None
+        self.output_path = None
+        self.train_list = None
+        self.test_list = None
+        self.randomize = None
+        self.train_ratio = None
+        self.test_ratio = None
 
         # Train parameters
         self.learning_rate = None
@@ -62,11 +82,34 @@ class Config(object):
         else:
             raise Exception(f"ERROR: {self.config_file_path} does not exist!")
 
+        if "dataset-preparation":
+            self.parse_dataset_preparation_section(config_parser)
+
         if "train" in config_parser:
             self.parse_train_section(config_parser)
 
         if "infer" in config_parser:
             self.parse_infer_section(config_parser)
+
+    def parse_dataset_preparation_section(self, config_parser):
+        """
+        Function that parser the dataset_preparation section in the INI
+        configuration file.
+
+        :type config_parser:  ConfigParser
+        :param config_parser: ConfigParser class that contains the parsed INI
+                              configuration file.
+        """
+
+        dataset_prep_config = config_parser["data_preparation"]
+        self.ocr_output_path = Config.validate_file(dataset_prep_config["ocr_output_path"])
+        self.input_path = Config.validate_file(dataset_prep_config["input_path"])
+        self.output_path = Config.validate_file(dataset_prep_config["output_path"])
+        self.train_list = Config.validate_file(dataset_prep_config["train_list"])
+        self.test_list = Config.validate_file(dataset_prep_config["test_list"])
+        self.randomize = Config.validate_bool(dataset_prep_config["randomize"])
+        self.train_ratio = Config.validate_float(dataset_prep_config["train_ratio"])
+        self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"])
 
     def parse_infer_section(self, config_parser):
         """
@@ -78,7 +121,7 @@ class Config(object):
         """
 
         infer_config = config_parser["infer"]
-        self.input_data_dir = Config.validate_dir(infer_config["input_data_dir"])
+        self.input_data_dir = Config.validate_file(infer_config["input_data_dir"])
 
     def parse_train_section(self, config_parser):
         """
@@ -90,48 +133,68 @@ class Config(object):
         """
 
         train_config = config_parser["train"]
-        self.learning_rate = Config.validate_int(train_config["learning_rate"], mandatory=False)
-        self.test_input_data_dir = Config.validate_dir(train_config["test_input_data_dir"])
-        self.test_gt_data_dir = Config.validate_dir(train_config["test_gt_data_dir"])
-        self.train_input_data_dir = Config.validate_dir(train_config["train_input_data_dir"])
-        self.train_gt_data_dir = Config.validate_dir(train_config["train_gt_data_dir"])
+        self.learning_rate = Config.validate_float(train_config["learning_rate"], mandatory=False)
+        self.test_input_data_dir = Config.validate_file(train_config["test_input_data_dir"])
+        self.test_gt_data_dir = Config.validate_file(train_config["test_gt_data_dir"])
+        self.train_input_data_dir = Config.validate_file(train_config["train_input_data_dir"])
+        self.train_gt_data_dir = Config.validate_file(train_config["train_gt_data_dir"])
 
     @staticmethod
-    def validate_dir(directory_path, mandatory=True):
+    def validate_bool(bool_value, mandatory=True):
+        """
+        A function that checks whether a given string value contains
+        a bool value (either True or False).
+
+        :type bool_value:  String
+        :param bool_value: String that should contain the bool value
+        :type mandatory:   Bool
+        :param mandatory:  Specifies whether given bool value is mandatory
+        :raises Exception: When :param bool_value: does not contain valid bool value
+                           and :param mandatory: is set to True.
+        """
+        if bool_value == "True":
+            return True
+        elif bool_value == "False":
+            return False
+        else:
+            raise Exception(f"ERROR: {mandatory} is not valid bool value!")
+
+    @staticmethod
+    def validate_file(file_path, mandatory=True):
         """
         A function that checks whether a given directory path exists.
 
-        :type directory_path:  String
-        :param directory_path: Directory path that should be checked
-        :type mandatory:       Bool
-        :param mandatory:      Specifies whether given directory path is mandatory.
-        :return:               String that describes path to the directory if it exists.
-        :raises Exception:     When directory path does not exist and :param mandatory is
-                               set to True
+        :type file_path:   String
+        :param file_path:  Directory path that should be checked
+        :type mandatory:   Bool
+        :param mandatory:  Specifies whether given directory path is mandatory.
+        :return:           String that describes path to the directory if it exists.
+        :raises Exception: When directory path does not exist and :param mandatory: is
+                           set to True
         """
-        if os.path.exists(directory_path):
-            return directory_path
+        if os.path.exists(file_path):
+            return file_path
         elif mandatory:
-            raise Exception(f"ERROR: {directory_path} does not exist!")
+            raise Exception(f"ERROR: {file_path} does not exist!")
         else:
             return ""
 
     @staticmethod
-    def validate_int(str_integer, mandatory=True):
+    def validate_float(str_float, mandatory=True):
         """
         A function that checks whether a given string is a valid integer
 
-        :type str_integer:  Integer
-        :param str_integer: String containing an integer.
+        :type str_float:    Integer
+        :param str_float:   String containing an integer.
         :type mandatory:    Bool
-        :param mandatory:   Specifies whether it is mandatory that the :param str_integer
+        :param mandatory:   Specifies whether it is mandatory that the :param str_integer:
                             contains valid value.
-        :return:            Integer value obtained by parsing the :param str_integer
-        :raises Exception:  When the :param str_integer does not contain valid value and
-                            :param mandatory is set to True
+        :return:            Integer value obtained by parsing the :param str_integer:
+        :raises Exception:  When the :param str_integer: does not contain valid value and
+                            :param mandatory: is set to True
         """
         try:
-            return int(str_integer)
+            return float(str_float)
         except Exception as e:
             if mandatory:
                 raise e
