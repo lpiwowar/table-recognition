@@ -1,12 +1,37 @@
 import argparse
+import os
 
 from config_parser import Config
 from gt_graph_factory import GTGraphCreator
 
 
 def data_preparation(conf):
-    gt_graph_creator = GTGraphCreator(conf)
-    gt_graph_creator.create_k_nearest_neighbors_graphs()
+    """
+    Prepare graph representation that can be used to train the GNN.
+
+    :type conf:  Config
+    :param conf: Instance of Config class that contains configuration
+                 information
+    """
+
+    ocr_files = [file for file in os.listdir(conf.ocr_output_path)]
+    gt_files = [file for file in os.listdir(conf.dataset_gt_path)]
+    img_files = [file for file in os.listdir(conf.dataset_img_path)]
+
+    for ocr_file in ocr_files:
+        ocr_file_prefix = ocr_file.split(".")[0]
+        if ocr_file_prefix + ".xml" not in gt_files:
+            raise Exception(f"ERROR: {ocr_file_prefix + '.xml'} is missing in the dataset GT dir.")
+        if ocr_file_prefix + ".jpg" not in img_files:
+            raise Exception(f"ERROR: {ocr_file_prefix + '.jpg'}is missing in the dataset IMG dir.")
+
+        ocr_file_path = os.path.join(config.ocr_output_path, ocr_file)
+        dataset_gt_path = os.path.join(config.dataset_gt_path, ocr_file_prefix + '.xml')
+        dataset_img_path = os.path.join(config.dataset_img_path, ocr_file_prefix + '.jpg')
+
+        gt_graph_creator = GTGraphCreator(ocr_file_path, dataset_gt_path, dataset_img_path)
+        gt_graph_creator.create_k_nearest_neighbors_graphs()
+        gt_graph_creator.visualize_graph(config.visualize_dir)
 
 
 def check_arguments(arg):

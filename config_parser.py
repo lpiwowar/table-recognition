@@ -20,6 +20,8 @@ class Config(object):
     randomize            = <RANDOM: randomly select which files will be used for training/testing>
     train_ratio          = <RANDOM: what percentage of the data should be used for training>
     test_ratio           = <RANDOM: what percentage of the data should be used for testing>
+    visualize_graph      = <VISUALIZE: create visualization of the created graph and store it>
+    visualize_dir        = <VISUALIZE: directory in which the visualizations should be stored>
 
     [train]
     learning_rate        = <learning rate that should be used for training>
@@ -50,6 +52,8 @@ class Config(object):
         self.randomize = None
         self.train_ratio = None
         self.test_ratio = None
+        self.visualize_graph = None
+        self.visualize_dir = None
 
         # Train parameters
         self.learning_rate = None
@@ -78,7 +82,9 @@ class Config(object):
                f"[dataset-preparation].test_list={self.test_list} " \
                f"[dataset-preparation].randomize={self.randomize} " \
                f"[dataset-preparation].train_ratio={self.train_ratio} " \
-               f"[dataset-preparation].test_ratio={self.test_ratio}>"
+               f"[dataset-preparation].test_ratio={self.test_ratio} " \
+               f"[dataset-preparation].visualize_graph={self.visualize_graph} " \
+               f"[dataset-preparation].visualize_dir={self.visualize_dir}>"
 
     def parse_ini_config_file(self):
         """Function that parses the INI configuration file."""
@@ -118,6 +124,8 @@ class Config(object):
         self.randomize = Config.validate_bool(dataset_prep_config["randomize"], mandatory=False)
         self.train_ratio = Config.validate_float(dataset_prep_config["train_ratio"], mandatory=False)
         self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"], mandatory=False)
+        self.visualize_graph = Config.validate_bool(dataset_prep_config["visualize_graph"], mandatory=False)
+        self.visualize_dir = Config.validate_file(dataset_prep_config["visualize_dir"], mandatory=False)
 
     def parse_infer_section(self, config_parser):
         """

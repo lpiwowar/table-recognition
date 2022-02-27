@@ -1,11 +1,10 @@
 import os
-from rtree import index
 from xml.etree import ElementTree
 
-from utils import coords_string_to_tuple_list
+import cv2
+from rtree import index
 
-# import torch
-# from torch_geometric.data import Dataset
+from utils import coords_string_to_tuple_list
 
 
 class GTGraphCreator(object):
@@ -16,16 +15,23 @@ class GTGraphCreator(object):
     data to create the graph representation of the expected output
     of the GNN.
 
-    :type config:  Config
-    :param config: Instance of object Config containing configuration
-                   information
+    :type ocr_file_path:    String
+    :param ocr_file_path:   Absolute path to XML file containing the OCR output
+    :type dataset_gt_path:    String
+    :param dataset_gt_path:   Absolute path to XML file containing the dataset GT
+    :type dataset_image_path: String
+    :type dataset_image_path: Absolute path to image from the dataset
     """
 
-    def __init__(self, config):
-        self.config = config
-        self.text_lines = []
+    def __init__(self, ocr_file_path, dataset_gt_path, dataset_image_path=None):
+        self.ocr_file_path = ocr_file_path
+        self.dataset_gt_path = dataset_gt_path
+        self.dataset_image_path = dataset_image_path
+        self.text_lines = []                         # List of OCRTextLine objects
+        self.rtree_id_to_text_line = {}              # Directory that maps rtree ID to OCRTextLine instance
+        self.edges = set()                           # List of edges between the textlines [[1,2], [2,3], [4,5], ...]
 
-    def create_k_nearest_neighbors_graphs(self):
+    def create_k_nearest_neighbors_graphs(self, k_param=4):
         """
         Create graph representation of XML CTDAR ground truth data.
         The created graph representation can be used to train the GNN.
@@ -38,23 +44,54 @@ class GTGraphCreator(object):
         xpath_coords = "./xmlns:Page/xmlns:TextRegion/xmlns:TextLine"
 
         # Parse XML OCR output
-        for ocr_file in os.listdir(self.config.dataset_gt_path):
-            ocr_file_path = os.path.join(self.config.ocr_output_path, ocr_file)
-            coords_xml = ElementTree.parse(ocr_file_path).findall(xpath_coords, ns)
-            self.text_lines += [OCRTextLine(coord_xml) for coord_xml in coords_xml]
+        coords_xml = ElementTree.parse(self.ocr_file_path).findall(xpath_coords, ns)
+        self.text_lines += [OCRTextLine(coord_xml) for coord_xml in coords_xml]
 
         # Create Rtree index
         idx = index.Index()
         rtree_id = 0
         for text_line in self.text_lines:
             text_line.rtree_id = rtree_id
+            self.rtree_id_to_text_line[text_line.rtree_id] = text_line
             rtree_id += 1
 
             x_coords = [x for x, _ in text_line.polygon_points]
             y_coords = [y for _, y in text_line.polygon_points]
             max_x, min_x = max(x_coords), min(x_coords)
             max_y, min_y = max(y_coords), min(y_coords)
-            idx.insert(text_line.rtree_id, (min_x, min_y, max_x, max_y))
+            text_line.bbox_points = (min_x, min_y, max_x, max_y)
+            idx.insert(text_line.rtree_id, text_line.bbox_points)
+
+        # Create graph representation
+        for text_line in self.text_lines:
+            k_neighbors = list(idx.nearest(text_line.bbox_points, k_param))
+            self.edges = self.edges.union({(text_line.rtree_id, neighbor) for neighbor in k_neighbors})
+            self.edges = self.edges.union({(neighbor, text_line.rtree_id) for neighbor in k_neighbors})
+
+    def visualize_graph(self, visualize_dir="./dataset_preparation/visualization"):
+        """
+        Visualize the created graph. This function MUST be called after one of the
+        functions for graph creation create_*
+
+        :type visualize_dir:  String
+        :param visualize_dir: Directory that should store the visualizations
+        """
+
+        img = cv2.imread(self.dataset_image_path)
+
+        for text_line in self.text_lines:
+            center_x, center_y = text_line.bbox_center()
+            cv2.circle(img, (center_x, center_y),  radius=10, color=(0, 0, 255), thickness=-1)
+
+            neighbors = [edge_dst for edge_src, edge_dst in self.edges if edge_src == text_line.rtree_id]
+
+            for neighbor in neighbors:
+                src_pt = self.rtree_id_to_text_line[text_line.rtree_id].bbox_center()
+                dst_pt = self.rtree_id_to_text_line[neighbor].bbox_center()
+                cv2.line(img, src_pt, dst_pt, color=(0, 0, 0), thickness=3)
+
+        image_name = self.dataset_image_path.split("/")[-1]
+        cv2.imwrite(os.path.join(visualize_dir, "GRAPH_" + image_name), img)
 
 
 class OCRTextLine(object):
@@ -76,10 +113,11 @@ class OCRTextLine(object):
         :param text_line_xml: XML element representing a given text line
 
         """
-        self.text_line_xml = text_line_xml   # XML representation of TextLine
-        self.uuid = None                     # UUID that represents the text line in XML
-        self.rtree_id = None                 # ID that represents the polygon in rtree db
-        self.polygon_points = []             # List of 2D coords that define the text line polygon
+        self.text_line_xml = text_line_xml  # XML representation of TextLine
+        self.uuid = None  # UUID that represents the text line in XML
+        self.rtree_id = None  # ID that represents the polygon in rtree db
+        self.polygon_points = []  # List of 2D coords that define the text line polygon
+        self.bbox_points = None  # The minimal bounding box (left, bottom, right, top)
 
         self.parse()
 
@@ -95,6 +133,23 @@ class OCRTextLine(object):
 
         coords_xml = self.text_line_xml.find("./xmlns:Coords", ns)
         self.polygon_points = coords_string_to_tuple_list(coords_xml.attrib["points"])
+
+    def bbox_center(self):
+        """
+        Returns 2D point that is in the middle of the bounding box
+        defined by polygon points
+
+        :return: tuple that contains coordinates of 2D point that is in
+                 the middle of the bounding box
+        """
+        left, bottom, right, top = self.bbox_points
+        width = abs(right - left)
+        height = abs(top - bottom)
+        center_x = int(left + width / 2)
+        center_y = int(top + height / 2)
+
+        return center_x, center_y
+
 
 """
 class Table(object):
