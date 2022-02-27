@@ -12,9 +12,9 @@ class Config(object):
     ! - Marks required values in a given block.
 
     [data_preparation]
-    ocr_output_path      = ! <XML file containing the OCR output>
-    input_path           = ! <directory containing table images>
-    gt_path              = ! <directory containing GT data in XML CTDAR format>
+    ocr_output_path      = ! <directory containing XML files that represent the OCR output>
+    dataset_img_path     = ! <directory containing table images>
+    dataset_gt_path      = ! <directory containing GT data in XML CTDAR format>
     train_list           = <text file defining which files should be used for training>
     test_list            = <text file defining which files should be used for testing>
     randomize            = <RANDOM: randomly select which files will be used for training/testing>
@@ -43,8 +43,8 @@ class Config(object):
 
         # Dataset preparation
         self.ocr_output_path = None
-        self.input_path = None
-        self.output_path = None
+        self.dataset_img_path = None
+        self.dataset_gt_path = None
         self.train_list = None
         self.test_list = None
         self.randomize = None
@@ -65,12 +65,20 @@ class Config(object):
 
     def __str__(self):
         return f"<Config config_file_path={self.config_file_path} " \
-               f"learning_rate={self.learning_rate} " \
-               f"test_input_data_dir={self.test_input_data_dir} " \
-               f"test_gt_data_dir={self.test_gt_data_dir} " \
-               f"train_input_data_dir={self.train_input_data_dir} " \
-               f"train_gt_data_dir={self.train_gt_data_dir} " \
-               f"input_data_dir={self.input_data_dir}>"
+               f"[train].learning_rate={self.learning_rate} " \
+               f"[train].test_input_data_dir={self.test_input_data_dir} " \
+               f"[train].test_gt_data_dir={self.test_gt_data_dir} " \
+               f"[train].train_input_data_dir={self.train_input_data_dir} " \
+               f"[train].train_gt_data_dir={self.train_gt_data_dir} " \
+               f"[train/infer].input_data_dir={self.input_data_dir} " \
+               f"[dataset-preparation].ocr_output_path={self.ocr_output_path} " \
+               f"[dataset-preparation].input_path={self.dataset_img_path} " \
+               f"[dataset-preparation].output_path={self.dataset_gt_path} " \
+               f"[dataset-preparation].train_list={self.train_list} " \
+               f"[dataset-preparation].test_list={self.test_list} " \
+               f"[dataset-preparation].randomize={self.randomize} " \
+               f"[dataset-preparation].train_ratio={self.train_ratio} " \
+               f"[dataset-preparation].test_ratio={self.test_ratio}>"
 
     def parse_ini_config_file(self):
         """Function that parses the INI configuration file."""
@@ -103,13 +111,13 @@ class Config(object):
 
         dataset_prep_config = config_parser["data_preparation"]
         self.ocr_output_path = Config.validate_file(dataset_prep_config["ocr_output_path"])
-        self.input_path = Config.validate_file(dataset_prep_config["input_path"])
-        self.output_path = Config.validate_file(dataset_prep_config["output_path"])
-        self.train_list = Config.validate_file(dataset_prep_config["train_list"])
-        self.test_list = Config.validate_file(dataset_prep_config["test_list"])
-        self.randomize = Config.validate_bool(dataset_prep_config["randomize"])
-        self.train_ratio = Config.validate_float(dataset_prep_config["train_ratio"])
-        self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"])
+        self.dataset_img_path = Config.validate_file(dataset_prep_config["dataset_img_path"])
+        self.dataset_gt_path = Config.validate_file(dataset_prep_config["dataset_gt_path"])
+        self.train_list = Config.validate_file(dataset_prep_config["train_list"], mandatory=False)
+        self.test_list = Config.validate_file(dataset_prep_config["test_list"], mandatory=False)
+        self.randomize = Config.validate_bool(dataset_prep_config["randomize"], mandatory=False)
+        self.train_ratio = Config.validate_float(dataset_prep_config["train_ratio"], mandatory=False)
+        self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"], mandatory=False)
 
     def parse_infer_section(self, config_parser):
         """

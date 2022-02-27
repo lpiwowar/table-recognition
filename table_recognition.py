@@ -1,11 +1,12 @@
 import argparse
 
 from config_parser import Config
+from gt_graph_factory import GTGraphCreator
 
 
-def data_preparation(config):
-
-    pass
+def data_preparation(conf):
+    gt_graph_creator = GTGraphCreator(conf)
+    gt_graph_creator.create_k_nearest_neighbors_graphs()
 
 
 def check_arguments(arg):
