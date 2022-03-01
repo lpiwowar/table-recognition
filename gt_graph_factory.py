@@ -4,6 +4,7 @@ from xml.etree import ElementTree
 
 import cv2
 from rtree import index
+from shapely.geometry import Polygon
 
 from utils import coords_string_to_tuple_list
 
@@ -65,7 +66,7 @@ class GTGraphCreator(object):
         cells_xml = ElementTree.parse(self.dataset_gt_path).findall("./table/cell")
         self.table_cells += [DatasetGTNode(cell_xml) for cell_xml in cells_xml]
 
-        # Create Rtree index
+        # Create Rtree index - dataset GT
         idx_cells = index.Index()
         rtree_id = 0
         for table_cell in self.table_cells:
@@ -79,16 +80,98 @@ class GTGraphCreator(object):
         for text_line in self.text_lines:
             # Create edges and define its types
             k_neighbors = list(idx.nearest(text_line.bbox_points, k_param))
-            self.edges = self.edges.union({(text_line.rtree_id, neighbor) for neighbor in k_neighbors})
-            self.edges = self.edges.union({(neighbor, text_line.rtree_id) for neighbor in k_neighbors})
+            self.edges = self.edges.union({Edge(text_line, self.rtree_id_to_text_line[neighbor])
+                                           for neighbor in k_neighbors})
+            self.edges = self.edges.union({Edge(self.rtree_id_to_text_line[neighbor], text_line)
+                                           for neighbor in k_neighbors})
 
-            # Define type of node in graph
+            # Color type of node - Define type of node in graph
             cells_intersection = list(idx_cells.intersection(text_line.bbox_points))
             if cells_intersection:
                 dataset_gt_nodes = self.get_dataset_gt_nodes_by_rtree_idxs(cells_intersection)
                 cells_intersection_types = [cell.type for cell in dataset_gt_nodes]
                 cell_type = max(cells_intersection_types, key=cells_intersection_types.count)
                 text_line.type = cell_type
+
+        # Color edges in graph - define its type
+        for edge in self.edges:
+            # Get left node intersection with GT dataset
+            left_node_intersections_idx = list(idx_cells.intersection(edge.node_left.bbox_points))
+            if not left_node_intersections_idx:
+                continue
+
+            left_node_pts = edge.node_left.bbox_polygon
+            left_node_intersections = self.get_dataset_gt_nodes_by_rtree_idxs(left_node_intersections_idx)
+            left_node_intersections = [node for node in left_node_intersections
+                                       if GTGraphCreator.polygon_eats_polygon_percent(node.bbox_polygon, left_node_pts) > 0.3]
+
+            if not left_node_intersections:
+                continue
+
+            left_node_start_row = min([node.start_row for node in left_node_intersections])
+            left_node_end_row = max([node.end_row for node in left_node_intersections])
+            left_node_start_col = min([node.start_col for node in left_node_intersections])
+            left_node_end_col = max([node.end_col for node in left_node_intersections])
+
+            edge.node_left.max_start_row = left_node_start_row
+            edge.node_left.max_end_row = left_node_end_row
+            edge.node_left.max_start_col = left_node_start_col
+            edge.node_left.max_end_col = left_node_end_col
+
+            # Get right node intersection with GT dataset
+            right_node_intersections_idx = list(idx_cells.intersection(edge.node_right.bbox_points))
+            if not right_node_intersections_idx:
+                continue
+
+            right_node_pts = edge.node_right.bbox_polygon
+            right_node_intersections = self.get_dataset_gt_nodes_by_rtree_idxs(right_node_intersections_idx)
+            right_node_intersections = [node for node in right_node_intersections
+                                        if GTGraphCreator.polygon_eats_polygon_percent(node.bbox_polygon, right_node_pts) > 0.3]
+
+            if not right_node_intersections:
+                continue
+
+            right_node_start_row = min([node.start_row for node in right_node_intersections])
+            right_node_end_row = max([node.end_row for node in right_node_intersections])
+            right_node_start_col = min([node.start_col for node in right_node_intersections])
+            right_node_end_col = max([node.end_col for node in right_node_intersections])
+
+            edge.node_right.max_start_row = right_node_start_row
+            edge.node_right.max_end_row = right_node_end_row
+            edge.node_right.max_start_col = right_node_start_col
+            edge.node_right.max_end_col = right_node_end_col
+
+            edge.type = GTGraphCreator.get_edge_type((left_node_start_row, left_node_end_row,
+                                                      left_node_start_col, left_node_end_col),
+                                                     (right_node_start_row, right_node_end_row,
+                                                      right_node_start_col, right_node_end_col))
+
+    @staticmethod
+    def polygon_eats_polygon_percent(polygon_1, polygon_2):
+        intersection_area = Polygon(polygon_1).intersection(Polygon(polygon_2)).area
+        polygon_2_area = Polygon(polygon_2).area
+        if polygon_2_area == 0:
+            return 0
+        else:
+            return intersection_area / polygon_2_area
+
+    @staticmethod
+    def get_edge_type(left_node_table_position, right_node_table_position):
+        def my_range(start, end):
+            return list(range(start, end)) + [end]
+
+        l_start_row, l_end_row, l_start_col, l_end_col = left_node_table_position
+        r_start_row, r_end_row, r_start_col, r_end_col = right_node_table_position
+
+        if set(my_range(l_start_row, l_end_row)) <= set(my_range(r_start_row, r_end_row)) or \
+           set(my_range(r_start_row, r_end_row)) <= set(my_range(l_start_row, l_end_row)):
+            return "vertical"
+
+        if set(my_range(l_start_col, l_end_col)) <= set(my_range(r_start_col, r_end_col)) or \
+           set(my_range(r_start_col, r_end_col)) <= set(my_range(l_start_col, l_end_col)):
+            return "horizontal"
+
+        return None
 
     def get_dataset_gt_nodes_by_rtree_idxs(self, rtree_idxs):
         """
@@ -99,7 +182,11 @@ class GTGraphCreator(object):
         :param rtree_idxs: List of rtree indeces
         :return:           List of DatasetGTNode objects
         """
+        if not rtree_idxs:
+            return []
+
         dataset_gt_nodes = itemgetter(*rtree_idxs)(self.d_rtree_id_to_text_line)
+
         if type(dataset_gt_nodes) is tuple:
             return list(dataset_gt_nodes)
         else:
@@ -122,7 +209,9 @@ class GTGraphCreator(object):
                 None: (0, 0, 0)
             },
             "edge": {
-
+                "horizontal": (255, 0, 0),
+                "vertical": (255, 255, 0),
+                None: (0, 0, 0)
             }
         }
 
@@ -134,25 +223,46 @@ class GTGraphCreator(object):
             cv2.rectangle(img, (left, bottom), (right, top), color=(0, 0, 255), thickness=2)
 
             # Draw edges for a given node
-            neighbors = [edge_dst for edge_src, edge_dst in self.edges if edge_src == text_line.rtree_id]
+            neighbors = [edge for edge in self.edges if edge.node_left.rtree_id == text_line.rtree_id]
             for neighbor in neighbors:
                 src_pt = self.rtree_id_to_text_line[text_line.rtree_id].bbox_center()
-                dst_pt = self.rtree_id_to_text_line[neighbor].bbox_center()
-                cv2.line(img, src_pt, dst_pt, color=(0, 0, 0), thickness=3)
+                dst_pt = self.rtree_id_to_text_line[neighbor.node_right.rtree_id].bbox_center()
+                cv2.line(img, src_pt, dst_pt, color=colors["edge"][neighbor.type], thickness=3)
 
             # Draw graphs node (circle in the middle of the text line)
             center_x, center_y = text_line.bbox_center()
             cv2.circle(img, (center_x, center_y), radius=10, color=colors["node"][text_line.type], thickness=-1)
+
+        for text_line in self.text_lines:
+            center_x, center_y = text_line.bbox_center()
+            cv2.putText(img,
+                        f"{text_line.max_start_row},{text_line.max_end_row},{text_line.max_start_col},{text_line.max_end_col}",
+                       # f"{text_line.rtree_id}",
+                        (center_x - 10, center_y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1, cv2.LINE_AA)
+
+        for table_cell in self.table_cells:
+            left, bottom, right, top = table_cell.bbox_points
+            cv2.rectangle(img, (left, bottom), (right, top), color=(255, 0, 0), thickness=1)
 
         image_name = self.dataset_image_path.split("/")[-1]
         cv2.imwrite(os.path.join(visualize_dir, "GRAPH_" + image_name), img)
 
 
 class Edge(object):
-    def __init__(self):
-        self.node_left = None
-        self.node_right = None
+    def __init__(self, node_left, node_right):
+        self.node_left = node_left
+        self.node_right = node_right
         self.type = None
+
+    def __eq__(self, other):
+        return str(self.node_left.rtree_id) == str(other.node_left.rtree_id) and \
+               str(self.node_right.rtree_id) == str(other.node_right.rtree_id)
+
+    def __hash__(self):
+        return hash(self.__repr__())
+
+    def __repr__(self):
+        return f"[{self.node_left.rtree_id}, {self.node_right.rtree_id}]"
 
 
 class PolygonNode(object):
@@ -175,10 +285,17 @@ class PolygonNode(object):
         :param text_line_xml: XML element representing coordinates of a given text line
         """
 
+        # REMOVE LATER!!!
+        self.max_start_row, self.max_end_row, self.max_start_col, self.max_end_col = None, None, None, None
+
         self.text_line_xml = text_line_xml
         self.polygon_points = None
         self.bbox_points = None
+        self.bbox_polygon = None
         self.rtree_id = None
+
+    def __repr__(self):
+        return str(self.rtree_id)
 
     def parse(self):
         """Parser of the information from the :param text_line_xml:"""
@@ -195,6 +312,7 @@ class PolygonNode(object):
         max_x, min_x = max(x_coords), min(x_coords)
         max_y, min_y = max(y_coords), min(y_coords)
         self.bbox_points = (min_x, min_y, max_x, max_y)
+        self.bbox_polygon = [(min_x, min_y), (min_x, max_y), (max_x, max_y), (max_x, min_y)]
 
     def bbox_center(self):
         """
