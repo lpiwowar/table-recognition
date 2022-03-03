@@ -9,6 +9,7 @@ from shapely.geometry import Polygon
 from utils import coords_string_to_tuple_list
 
 
+# noinspection PyUnresolvedReferences
 class GTGraphCreator(object):
     """
     Class that creates ground truth graph representation.
@@ -100,10 +101,16 @@ class GTGraphCreator(object):
             if not left_node_intersections_idx:
                 continue
 
+            #if edge.node_left.rtree_id != 649 and edge.node_left.rtree_id != 649:
+            #   continue
+
             left_node_pts = edge.node_left.bbox_polygon
             left_node_intersections = self.get_dataset_gt_nodes_by_rtree_idxs(left_node_intersections_idx)
+            # print(f"NODE ID: {edge.node_left.rtree_id} = {left_node_intersections}")
+            # print(f"node_left_bbox_points: {edge.node_left.bbox_points}")
             left_node_intersections = [node for node in left_node_intersections
-                                       if GTGraphCreator.polygon_eats_polygon_percent(node.bbox_polygon, left_node_pts) > 0.3]
+                                       if GTGraphCreator.polygon_eats_polygon_percent(left_node_pts, node.bbox_polygon) > 0.2]
+            # print(f"left_filtered: {left_node_intersections}")
 
             if not left_node_intersections:
                 continue
@@ -125,8 +132,11 @@ class GTGraphCreator(object):
 
             right_node_pts = edge.node_right.bbox_polygon
             right_node_intersections = self.get_dataset_gt_nodes_by_rtree_idxs(right_node_intersections_idx)
+            # print(f"NODE ID: {edge.node_right.rtree_id} = {right_node_intersections}")
+            # print(f"node_right_bbox_points: {edge.node_right.bbox_points}")
+            # print(f"right_filtered: {right_node_intersections}")
             right_node_intersections = [node for node in right_node_intersections
-                                        if GTGraphCreator.polygon_eats_polygon_percent(node.bbox_polygon, right_node_pts) > 0.3]
+                                        if GTGraphCreator.polygon_eats_polygon_percent(right_node_pts, node.bbox_polygon) > 0.2]
 
             if not right_node_intersections:
                 continue
@@ -148,12 +158,25 @@ class GTGraphCreator(object):
 
     @staticmethod
     def polygon_eats_polygon_percent(polygon_1, polygon_2):
-        intersection_area = Polygon(polygon_1).intersection(Polygon(polygon_2)).area
-        polygon_2_area = Polygon(polygon_2).area
-        if polygon_2_area == 0:
-            return 0
+        #print(f"polygon_1: {polygon_1} polygon_2: {polygon_2}")
+        #intersection_area = Polygon(polygon_1).intersection(Polygon(polygon_2)).area
+        #polygon_1_area = Polygon(polygon_1).area
+        #if polygon_1_area == 0:
+        #    return 0
+        #else:
+            #print(intersection_area / polygon_2_area)
+            #print(f"intersection_area: {intersection_area} polygon_2_area: {polygon_2_area} => {intersection_area/ polygon_2_area}")
+        #    return intersection_area / Polygon(polygon_1).union(Polygon(polygon_2)).area
+
+        polygon_1 = Polygon(polygon_1)
+        polygon_2 = Polygon(polygon_2)
+        intersection = polygon_1.intersection(polygon_2).area
+        if intersection / polygon_1.area > 0.9:
+            return 1
+        elif intersection / polygon_2.area > 0.1:
+            return 1
         else:
-            return intersection_area / polygon_2_area
+            return 0
 
     @staticmethod
     def get_edge_type(left_node_table_position, right_node_table_position):
@@ -179,7 +202,7 @@ class GTGraphCreator(object):
         returns a list of corresponding dataset_gt_objects
 
         :type rtree_idxs:  List of integers
-        :param rtree_idxs: List of rtree indeces
+        :param rtree_idxs: List of rtree indices
         :return:           List of DatasetGTNode objects
         """
         if not rtree_idxs:
@@ -206,6 +229,7 @@ class GTGraphCreator(object):
                 "data": (255, 0, 0),
                 "data_empty": (230, 230, 250),
                 "header_empty": (255, 248, 220),
+                "data_mark": (0, 0, 0),
                 None: (0, 0, 0)
             },
             "edge": {
@@ -236,12 +260,14 @@ class GTGraphCreator(object):
         for text_line in self.text_lines:
             center_x, center_y = text_line.bbox_center()
             cv2.putText(img,
-                        f"{text_line.max_start_row},{text_line.max_end_row},{text_line.max_start_col},{text_line.max_end_col}",
-                       # f"{text_line.rtree_id}",
-                        (center_x - 10, center_y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1, cv2.LINE_AA)
+                      #  f"{text_line.max_start_row},{text_line.max_end_row},{text_line.max_start_col},{text_line.max_end_col}",
+                        f"{text_line.rtree_id}",
+                        (center_x - 10, center_y - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
 
         for table_cell in self.table_cells:
             left, bottom, right, top = table_cell.bbox_points
+            cv2.putText(img, f"{table_cell.rtree_id}", (left + 10, top + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3,
+                        (255, 255, 0), 1, cv2.LINE_AA)
             cv2.rectangle(img, (left, bottom), (right, top), color=(255, 0, 0), thickness=1)
 
         image_name = self.dataset_image_path.split("/")[-1]
