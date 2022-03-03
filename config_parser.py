@@ -54,6 +54,7 @@ class Config(object):
         self.test_ratio = None
         self.visualize_graph = None
         self.visualize_dir = None
+        self.prepared_data_dir = None
 
         # Train parameters
         self.learning_rate = None
@@ -126,6 +127,7 @@ class Config(object):
         self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"], mandatory=False)
         self.visualize_graph = Config.validate_bool(dataset_prep_config["visualize_graph"], mandatory=False)
         self.visualize_dir = Config.validate_file(dataset_prep_config["visualize_dir"], mandatory=False)
+        self.prepared_data_dir = Config.validate_file(dataset_prep_config["prepared_data_dir"], mandatory=False)
 
     def parse_infer_section(self, config_parser):
         """

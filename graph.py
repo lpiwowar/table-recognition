@@ -2,9 +2,10 @@ import os
 from xml.etree import ElementTree
 
 import cv2
+import torch
 from rtree import index
 from shapely.geometry import Polygon
-# from torch_geometric.data import Data
+from torch_geometric.data import Data
 
 from utils import coords_string_to_tuple_list
 from utils import get_multiple_values_from_dict
@@ -117,8 +118,14 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-        x = [node.feature_vector for node in self.nodes]
-        
+        x = torch.tensor([node.feature_vector for node in self.nodes], dtype=torch.float)
+        nodes1 = [edge.node1.id for edge in self.edges]
+        nodes2 = [edge.node2.id for edge in self.edges]
+        edge_index = torch.tensor([nodes1, nodes2], dtype=torch.float)
+        data = Data(x=x, edge_index=edge_index)
+
+        filename = os.path.basename(self.img_path).split(".")[0]
+        torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
 
 
 class Edge(object):
@@ -128,8 +135,8 @@ class Edge(object):
         self.type = None
 
     def __eq__(self, other):
-        return self.node1.rtree_id == other.node1.rtree_id and \
-               self.node2.rtree_id == other.node2.rtree_id
+        return self.node1.id == other.node1.id and \
+               self.node2.id == other.node2.id
 
     def __hash__(self):
         return hash(self.__repr__())
@@ -142,13 +149,16 @@ class Edge(object):
 
 
 class Node(object):
+    NODE_COUNTER = 0
+
     def __init__(self, polygon_pts):
         self.polygon_pts = polygon_pts
         self.bbox = self.get_node_bbox()
 
-        self.rtree_id = None
-        self.type = None
+        self.id = Node.NODE_COUNTER
+        Node.NODE_COUNTER += 1
 
+        self.type = None
         self.start_row = None
         self.end_row = None
         self.start_col = None
@@ -157,7 +167,7 @@ class Node(object):
         self.feature_vector = None
 
     def __repr__(self):
-        return f"<Node: rtree_id={self.rtree_id}>"
+        return f"<Node: rtree_id={self.id}>"
 
     def get_node_bbox(self):
         x_coords = [x for x, _ in self.polygon_pts]
@@ -200,12 +210,9 @@ class KNearestNeighbors(object):
         self.graph.edges = {edge for edge in self.graph.edges if not edge.is_reflexive()}
 
     def populate_rtree_index(self):
-        rtree_id = 0
         for node in self.graph.nodes:
-            node.rtree_id = rtree_id
-            self.rtree_index_2_node[node.rtree_id] = node
-            rtree_id += 1
-            self.rtree_index.insert(node.rtree_id, node.bbox["rtree"])
+            self.rtree_index_2_node[node.id] = node
+            self.rtree_index.insert(node.id, node.bbox["rtree"])
 
 
 class OutputGraphColorer(object):
@@ -221,12 +228,9 @@ class OutputGraphColorer(object):
         self.color_edges()
 
     def populate_rtree_index(self):
-        rtree_id = 0
         for node in self.graph.ground_truth_nodes:
-            node.rtree_id = rtree_id
-            self.rtree_index_2_node[node.rtree_id] = node
-            rtree_id += 1
-            self.rtree_index.insert(node.rtree_id, node.bbox["rtree"])
+            self.rtree_index_2_node[node.id] = node
+            self.rtree_index.insert(node.id, node.bbox["rtree"])
 
     def color_nodes(self):
         for node in self.graph.nodes:
@@ -313,8 +317,8 @@ class InputGraphColorerNodePosition(object):
         self.graph = graph
 
     def color_graph(self):
+        height, width, _ = cv2.imread(self.graph.img_path).shape
         for node in self.graph.nodes:
-            img = cv2.imread(self.graph.img_path)
             x, y = node.bbox["center"]
-            position = [x / img.width, y / img.height]
+            position = [x / width, y / height]
             node.feature_vector = position

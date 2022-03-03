@@ -33,8 +33,9 @@ def data_preparation(conf):
 
         graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path)
         graph.initialize()
-        graph.color_output()
+        graph.color_input()
         graph.visualize()
+        graph.dump()
         # gt_graph_creator = GTGraphCreator(ocr_file_path, dataset_gt_path, dataset_img_path)
         # gt_graph_creator.create_k_nearest_neighbors_graphs()
         # gt_graph_creator.visualize_graph(config.visualize_dir)
