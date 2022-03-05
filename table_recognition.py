@@ -20,7 +20,6 @@ def data_preparation(conf):
     img_files = [file for file in os.listdir(conf.dataset_img_path)]
 
     for ocr_file in tqdm(ocr_files):
-    # for ocr_file in ocr_files:
         ocr_file_prefix = ocr_file.split(".")[0]
         if ocr_file_prefix + ".xml" not in gt_files:
             raise Exception(f"ERROR: {ocr_file_prefix + '.xml'} is missing in the dataset GT dir.")
@@ -33,12 +32,11 @@ def data_preparation(conf):
 
         graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path)
         graph.initialize()
+        graph.color_output()
         graph.color_input()
         graph.visualize()
         graph.dump()
-        # gt_graph_creator = GTGraphCreator(ocr_file_path, dataset_gt_path, dataset_img_path)
-        # gt_graph_creator.create_k_nearest_neighbors_graphs()
-        # gt_graph_creator.visualize_graph(config.visualize_dir)
+
 
 def check_arguments(arg):
     """

@@ -2,6 +2,7 @@ import os
 from xml.etree import ElementTree
 
 import cv2
+import numpy as np
 import torch
 from rtree import index
 from shapely.geometry import Polygon
@@ -87,8 +88,8 @@ class Graph(object):
             "edge": {
                 "horizontal": (204, 0, 0),  # Red
                 "vertical": (153, 51, 255),  # Purple
-                "cell": (0, 0, 204), # Red
-                None: (0, 0, 0)  # Black
+                "cell": (0, 0, 204),  # Red
+                "no-relationship": (0, 0, 0)  # Black
             }
         }
 
@@ -118,12 +119,16 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-        x = torch.tensor([node.feature_vector for node in self.nodes], dtype=torch.float)
+        x = torch.tensor([node.input_feature_vector for node in self.nodes], dtype=torch.float)
+
         nodes1 = [edge.node1.id for edge in self.edges]
         nodes2 = [edge.node2.id for edge in self.edges]
         edge_index = torch.tensor([nodes1, nodes2], dtype=torch.float)
-        data = Data(x=x, edge_index=edge_index)
 
+        edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
+        edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges])
+
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, edge_output_attr=edge_output_attr)
         filename = os.path.basename(self.img_path).split(".")[0]
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
 
@@ -133,6 +138,9 @@ class Edge(object):
         self.node1 = node1
         self.node2 = node2
         self.type = None
+
+        self.input_feature_vector = None
+        self.output_feature_vector = None
 
     def __eq__(self, other):
         return self.node1.id == other.node1.id and \
@@ -164,7 +172,8 @@ class Node(object):
         self.start_col = None
         self.end_col = None
 
-        self.feature_vector = None
+        self.output_feature_vector = None
+        self.input_feature_vector = None
 
     def __repr__(self):
         return f"<Node: rtree_id={self.id}>"
@@ -216,6 +225,22 @@ class KNearestNeighbors(object):
 
 
 class OutputGraphColorer(object):
+    TYPE_2_FEATURE_VECTOR = {
+       "node": {
+           "header": [0],
+           "data": [1],
+           "data_mark": [1],
+           "data_empty": [1],
+           None: [1]
+       },
+       "edge": {
+           "cell": [1, 0, 0, 0],
+           "horizontal": [0, 1, 0, 0],
+           "vertical": [0, 0, 1, 0],
+           "no-relationship": [0, 0, 0, 1]
+       }
+    }
+
     def __init__(self, graph):
         self.graph = graph
 
@@ -241,12 +266,14 @@ class OutputGraphColorer(object):
                 cells_intersections_types = [node.type for node in cells_intersections_nodes]
                 cell_type = OutputGraphColorer.majority_type(cells_intersections_types)
                 node.type = cell_type
+                node.output_feature_vector = OutputGraphColorer.TYPE_2_FEATURE_VECTOR["node"][node.type]
 
     def color_edges(self):
         for edge in self.graph.edges:
             node1_logical_position = self.get_logical_position(edge.node1)
             node2_logical_position = self.get_logical_position(edge.node2)
             edge.type = OutputGraphColorer.get_edge_type(node1_logical_position, node2_logical_position)
+            edge.output_feature_vector = OutputGraphColorer.TYPE_2_FEATURE_VECTOR["edge"][edge.type]
 
     def get_logical_position(self, node):
         nodes_position = {"start-row": None, "end-row": None,
@@ -277,9 +304,9 @@ class OutputGraphColorer(object):
         ocr_polygon = Polygon(ocr_node.bbox["polygon"])
         cell_polygon = Polygon(cell_node.bbox["polygon"])
         intersection = ocr_polygon.intersection(cell_polygon).area
-        if (intersection / ocr_polygon.area) > 0.9:
+        if (intersection / max(10e-10, ocr_polygon.area)) > 0.9:
             return True
-        elif (intersection / cell_polygon.area) > 0.1:
+        elif (intersection / max(10e-10, cell_polygon.area)) > 0.1:
             return True
         else:
             return False
@@ -287,7 +314,7 @@ class OutputGraphColorer(object):
     @staticmethod
     def get_edge_type(node1, node2):
         if None in node1.values() or None in node2.values():
-            return None
+            return "no-relationship"
 
         node1_row_range = set(range_wrapper(node1["start-row"], node1["end-row"]))
         node1_col_range = set(range_wrapper(node1["start-col"], node1["end-col"]))
@@ -303,7 +330,7 @@ class OutputGraphColorer(object):
         if node1_col_range <= node2_col_range or node2_col_range <= node1_col_range:
             return "horizontal"
 
-        return None
+        return "no-relationship"
 
     @staticmethod
     def majority_type(types):
@@ -317,8 +344,21 @@ class InputGraphColorerNodePosition(object):
         self.graph = graph
 
     def color_graph(self):
+        self.color_nodes()
+        self.color_edges()
+
+    def color_nodes(self):
         height, width, _ = cv2.imread(self.graph.img_path).shape
         for node in self.graph.nodes:
             x, y = node.bbox["center"]
             position = [x / width, y / height]
-            node.feature_vector = position
+            node.input_feature_vector = position
+
+    def color_edges(self):
+        for edge in self.graph.edges:
+            node1_x, node1_y = edge.node1.bbox["center"]
+            node2_x, node2_y = edge.node2.bbox["center"]
+            distance = np.linalg.norm(np.array([node1_x, node1_y]) - np.array([node2_x, node2_y]))
+            edge.input_feature_vector = [distance]
+
+
