@@ -1,10 +1,16 @@
 import argparse
 import os
 
+import torch
+import torch.nn.functional as F
+from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from config_parser import Config
+from dataset import TableDataset
 from graph import Graph
+from model import SimpleModel
+from utils import visualize_graph
 
 
 def data_preparation(conf):
@@ -36,6 +42,30 @@ def data_preparation(conf):
         graph.color_input()
         graph.visualize()
         graph.dump()
+
+
+def train(conf):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = SimpleModel().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+    criterion = torch.nn.NLLLoss()
+
+    table_dataset = TableDataset(conf)
+    loader = DataLoader(table_dataset, batch_size=1)
+
+    for data in loader:
+        optimizer.zero_grad()
+        out_nodes, out_edges = model(data)
+
+        y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
+        loss_nodes = criterion(out_nodes, y)
+        loss_edges = criterion(out_edges, edge_output_attr)
+
+        loss_nodes.backward(retain_graph=True)
+        loss_edges.backward()
+
+        print(f"loss_edges: {loss_edges} loss_nodes: {loss_nodes}")
+        optimizer.step()
 
 
 def check_arguments(arg):
@@ -74,5 +104,6 @@ if __name__ == "__main__":
 
     if args.data_preparation:
         data_preparation(config)
-    # for file in os.listdir(config.train_input_data_dir):
-    #   print(file)
+    elif args.train:
+        train(config)
+

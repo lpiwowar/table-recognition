@@ -17,6 +17,8 @@ class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
                  img_path, edge_discovery_method='k-nearest-neighbors',
                  input_graph_colorer="node-position"):
+        Node.NODE_COUNTER = 0
+
         self.config = config
         self.ocr_output_path = ocr_output_path
         self.ground_truth_path = ground_truth_path
@@ -79,6 +81,7 @@ class Graph(object):
         colors = {
             "node": {
                 "header": (51, 204, 51),  # Green
+                "header_mark": (51, 204, 51),  # Green
                 "data": (0, 153, 255),  # Blue
                 "data_empty": (255, 255, 255),  # White
                 "header_empty": (255, 255, 255),  # White
@@ -109,6 +112,10 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
+            cv2.putText(img,
+                        #  f"{text_line.max_start_row},{text_line.max_end_row},{text_line.max_start_col},{text_line.max_end_col}",
+                        f"{node.id}",
+                        node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
 
         # Visualize GT cells
         for node in self.ground_truth_nodes:
@@ -119,17 +126,39 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-        x = torch.tensor([node.input_feature_vector for node in self.nodes], dtype=torch.float)
+        # x = torch.tensor([node.input_feature_vector for node in self.nodes], dtype=torch.float)
+
+        nodes = {}
+        for node in self.nodes:
+            nodes[node.id] = node.input_feature_vector
+        x = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.float)
+
+        nodes = {}
+        for node in self.nodes:
+            nodes[node.id] = node.output_feature_vector
+        y = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.float)
 
         nodes1 = [edge.node1.id for edge in self.edges]
         nodes2 = [edge.node2.id for edge in self.edges]
-        edge_index = torch.tensor([nodes1, nodes2], dtype=torch.float)
+        edge_index = torch.tensor([nodes1, nodes2], dtype=torch.long)
 
         edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
         edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges])
 
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, edge_output_attr=edge_output_attr)
+        visualize_position = {}
+        for node in self.nodes:
+            visualize_position[node.id] = node.bbox["center"]
+        visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())],
+                                          dtype=torch.float)
+
+        data = Data(x=x,
+                    y=y,
+                    edge_index=edge_index,
+                    edge_attr=edge_attr,
+                    edge_output_attr=edge_output_attr,
+                    visualize_position=visualize_position)
         filename = os.path.basename(self.img_path).split(".")[0]
+
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
 
 
@@ -227,11 +256,13 @@ class KNearestNeighbors(object):
 class OutputGraphColorer(object):
     TYPE_2_FEATURE_VECTOR = {
        "node": {
-           "header": [0],
-           "data": [1],
-           "data_mark": [1],
-           "data_empty": [1],
-           None: [1]
+           "header": [1, 0],
+           "header_mark": [1, 0],
+           "header_empty": [1, 0],
+           "data": [0, 1],
+           "data_mark": [0, 1],
+           "data_empty": [0, 1],
+           None: [0, 1]
        },
        "edge": {
            "cell": [1, 0, 0, 0],
@@ -267,6 +298,9 @@ class OutputGraphColorer(object):
                 cell_type = OutputGraphColorer.majority_type(cells_intersections_types)
                 node.type = cell_type
                 node.output_feature_vector = OutputGraphColorer.TYPE_2_FEATURE_VECTOR["node"][node.type]
+            else:
+                # WARNING
+                node.output_feature_vector = [0, 1]
 
     def color_edges(self):
         for edge in self.graph.edges:
@@ -334,7 +368,7 @@ class OutputGraphColorer(object):
 
     @staticmethod
     def majority_type(types):
-        types_order = {"data": 1, "header": 1, "data_empty": 0, "header_empty": 0,
+        types_order = {"data": 1, "header": 1, "header_empty": 1, "header_mark": 1, "data_empty": 0, "header_empty": 0,
                        "data_mark": 0}
         return max(types, key=lambda x: types_order[x])
 
