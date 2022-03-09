@@ -2,9 +2,10 @@ import os
 
 import torch
 from torch_geometric.data import Dataset
+from torch.utils.data import Dataset
 
 
-class TableDataset(object):
+class TableDataset(Dataset):
     def __init__(self, config):
         self.config = config
         self.data_files = os.listdir(self.config.train_data_dir)

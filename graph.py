@@ -126,37 +126,42 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-        # x = torch.tensor([node.input_feature_vector for node in self.nodes], dtype=torch.float)
 
         nodes = {}
         for node in self.nodes:
             nodes[node.id] = node.input_feature_vector
-        x = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.float)
+        # x = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.double)
+        x = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
 
         nodes = {}
         for node in self.nodes:
             nodes[node.id] = node.output_feature_vector
-        y = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.float)
+        # y = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.double)
+        y = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
 
         nodes1 = [edge.node1.id for edge in self.edges]
         nodes2 = [edge.node2.id for edge in self.edges]
-        edge_index = torch.tensor([nodes1, nodes2], dtype=torch.long)
+        # edge_index = torch.tensor([nodes1, nodes2], dtype=torch.long)
+        edge_index = torch.tensor([nodes1, nodes2])
 
+        # edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges], dtype=torch.double)
         edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
+        # edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges], dtype=torch.double)
         edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges])
 
         visualize_position = {}
         for node in self.nodes:
             visualize_position[node.id] = node.bbox["center"]
-        visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())],
-                                          dtype=torch.float)
+        visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())])
+       #                                   dtype=torch.float)
 
         data = Data(x=x,
                     y=y,
                     edge_index=edge_index,
                     edge_attr=edge_attr,
                     edge_output_attr=edge_output_attr,
-                    visualize_position=visualize_position)
+                    visualize_position=visualize_position,
+                    img_path=self.img_path)
         filename = os.path.basename(self.img_path).split(".")[0]
 
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
@@ -358,13 +363,33 @@ class OutputGraphColorer(object):
         if node1_row_range == node2_row_range and node1_col_range == node2_col_range:
             return "cell"
 
+        # Nodes are in the same column
         if node1_row_range <= node2_row_range or node2_row_range <= node1_row_range:
-            return "vertical"
+            if OutputGraphColorer.nodes_vertically_visible(node1, node2):
+                return "vertical"
+            else:
+                return "no-relationship"
 
+        # Nodes are in the same row
         if node1_col_range <= node2_col_range or node2_col_range <= node1_col_range:
-            return "horizontal"
+            if OutputGraphColorer.nodes_horizontally_visible(node1, node2):
+                return "horizontal"
+            else:
+                return "no-relationship"
 
         return "no-relationship"
+
+    @staticmethod
+    def nodes_vertically_visible(node1, node2):
+        bottom_cell_row = max(node1["start-row"], node2["start-row"])
+        top_cell_row = min(node1["end-row"], node2["end-row"])
+        return True if abs(bottom_cell_row - top_cell_row) <= 1 else False
+
+    @staticmethod
+    def nodes_horizontally_visible(node1, node2):
+        right_cell_column = max(node1["start-col"], node2["start-col"])
+        left_cell_column = min(node1["end-col"], node2["end-col"])
+        return True if abs(right_cell_column - left_cell_column) <= 1 else False
 
     @staticmethod
     def majority_type(types):
@@ -376,23 +401,38 @@ class OutputGraphColorer(object):
 class InputGraphColorerNodePosition(object):
     def __init__(self, graph):
         self.graph = graph
+        self.img_height, self.img_width, _ = cv2.imread(self.graph.img_path).shape
 
     def color_graph(self):
         self.color_nodes()
         self.color_edges()
 
     def color_nodes(self):
-        height, width, _ = cv2.imread(self.graph.img_path).shape
         for node in self.graph.nodes:
             x, y = node.bbox["center"]
-            position = [x / width, y / height]
-            node.input_feature_vector = position
+            position = [x / self.img_width, y / self.img_height]
+
+            [(min_x, min_y), (max_x, max_y)] = node.bbox["corners"]
+            bbox_width = abs(max_x - min_x) / self.img_width
+            bbox_height = abs(max_y - min_y) / self.img_height
+
+            node.input_feature_vector = position + [bbox_width, bbox_height]
 
     def color_edges(self):
         for edge in self.graph.edges:
+            # Center of node1
             node1_x, node1_y = edge.node1.bbox["center"]
-            node2_x, node2_y = edge.node2.bbox["center"]
-            distance = np.linalg.norm(np.array([node1_x, node1_y]) - np.array([node2_x, node2_y]))
-            edge.input_feature_vector = [distance]
+            node1_x, node1_y = node1_x / self.img_width, node1_y / self.img_height
 
+            # Center of node2
+            node2_x, node2_y = edge.node2.bbox["center"]
+            node2_x, node2_y = node2_x / self.img_width, node2_y / self.img_height
+
+            # Feature1: Distance of the two centers
+            distance = np.linalg.norm(np.array([node1_x, node1_y]) - np.array([node2_x, node2_y]))
+
+            # Feature2: Average of the two centers
+            avg_position_x, avg_position_y = (node1_x + node2_x) / 2, (node1_y + node2_y) / 2
+
+            edge.input_feature_vector = [float(distance)] + [avg_position_x, avg_position_y]
 

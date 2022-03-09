@@ -63,6 +63,8 @@ class Config(object):
         self.train_input_data_dir = None
         self.train_gt_data_dir = None
         self.train_data_dir = None
+        self.model_path = None
+        self.visualize_path = None
 
         # Infer section
         self.input_data_dir = None
@@ -76,6 +78,7 @@ class Config(object):
                f"[train].test_gt_data_dir={self.test_gt_data_dir} " \
                f"[train].train_input_data_dir={self.train_input_data_dir} " \
                f"[train].train_gt_data_dir={self.train_gt_data_dir} " \
+               f"[train].model_path={self.model_path}" \
                f"[train/infer].input_data_dir={self.input_data_dir} " \
                f"[dataset-preparation].ocr_output_path={self.ocr_output_path} " \
                f"[dataset-preparation].input_path={self.dataset_img_path} " \
@@ -158,6 +161,8 @@ class Config(object):
         self.train_input_data_dir = Config.validate_file(train_config["train_input_data_dir"], mandatory=False)
         self.train_gt_data_dir = Config.validate_file(train_config["train_gt_data_dir"], mandatory=False)
         self.train_data_dir = Config.validate_file(train_config["train_data_dir"], mandatory=False)
+        self.model_path = train_config["model_path"]
+        self.visualize_path = train_config["visualize_path"]
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):

@@ -49,8 +49,8 @@ class Table(object):
         root = tree.getroot()
 
         # Parse table region
-        xml_table_coords = root[0].findall("Coords")[0]
-        self.table_region = Table.xml_parse_coord(xml_table_coords.attrib["points"])
+        # xml_table_coords = root[0].findall("Coords")[0]
+        # self.table_region = Table.xml_parse_coord(xml_table_coords.attrib["points"])
 
         # Parse individual cells
         xml_cells = root[0].findall("cell")
@@ -61,6 +61,7 @@ class Table(object):
             end_col = xml_cell.attrib["end-col"]
             cell_coords = Table.xml_parse_coord(xml_cell.find("Coords").attrib["points"])
             cell = Cell(start_row, end_row, start_col, end_col, cell_coords, None)
+            cell.type = xml_cell.attrib["type"]
             self.cells.append(cell)
 
         return
@@ -151,6 +152,8 @@ class Table(object):
                 color = (0, 255, 0)
             elif cell.type == "empty":
                 color = (0, 0, 255)
+            else:
+                color = (0, 0, 0)
 
             thickness = 2
             image = cv2.polylines(image, [coords],

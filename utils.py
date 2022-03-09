@@ -1,6 +1,9 @@
-import networkx as nx
+import cv2
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
+import torch
+import os
 
 from torch_geometric.utils import to_networkx
 from torch_geometric.data import Data
@@ -97,3 +100,95 @@ def visualize_graph(data: Data) -> None:
     nx.draw(G, position, with_labels=True)
     plt.show()
     return None
+
+
+def visualize_model_output(data, out_nodes, out_edges):
+    G = nx.Graph()
+    us = data.edge_index[0]
+    vs = data.edge_index[1]
+    color_edges = {
+        0: "red", # cell
+        1: "blue", # horizontal
+        2: "orange", # vertical
+        3: "purple"
+    }
+    edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.numpy())]
+
+    for node_idx, node_attributes in enumerate(data.visualize_position):
+        G.add_node(node_idx, position=(float(node_attributes[0]), float(node_attributes[1])), type=out_nodes[node_idx])
+
+    for u, v, t in edges:
+        G.add_edge(u, v, type=t)
+
+    color_map_nodes = ["blue" if G.nodes[node_idx] == 1 else "red" for node_idx in G]
+    color_map_edges = [G[u][v]["type"] for u, v in G.edges()]
+
+    position = nx.get_node_attributes(G, 'position')
+    nx.draw(G, position, node_color=color_map_nodes, edge_color=color_map_edges, with_labels=True)
+    plt.show()
+    # print(G.nodes(data=True))
+
+
+def visualize_output_image(data, out_nodes, out_edges, visualize_path):
+    us = data.edge_index[0]
+    vs = data.edge_index[1]
+    color_edges = {
+        0: "red",  # cell
+        1: "blue",  # horizontal
+        2: "orange",  # vertical
+        3: "purple"
+    }
+    edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.numpy())]
+
+    img = cv2.imread(data.img_path[0])
+    for node_idx, node_attributes in enumerate(data.visualize_position):
+        cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
+                   thickness=-1)
+
+    for u, v, c in edges:
+        position_u = (int(data.visualize_position[u][0]), int(data.visualize_position[u][1]))
+        position_v = (int(data.visualize_position[v][0]), int(data.visualize_position[v][1]))
+        color_to_rgb = {
+            "red": (0, 0, 255),
+            "blue": (255, 0, 0),
+            "orange": (0, 140, 255),
+            "purple": (128, 0, 128)
+        }
+        cv2.line(img, position_u, position_v, color=color_to_rgb[c], thickness=3)
+
+    img_path = os.path.join(visualize_path, data.img_path[0].split("/")[-1])
+    cv2.imwrite(img_path, img)
+    # cv2.imshow("visualize output", img)
+    cv2.waitKey(0)
+
+
+def visualize_input_image(data, visualize_path):
+    us = data.edge_index[0]
+    vs = data.edge_index[1]
+    color_edges = {
+        0: "red",  # cell
+        1: "blue",  # horizontal
+        2: "orange",  # vertical
+        3: "purple"
+    }
+    edge_output_attr = None
+    edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, torch.argmax(data.edge_output_attr, dim=1).numpy())]
+
+    img = cv2.imread(data.img_path[0])
+    for node_idx, node_attributes in enumerate(data.visualize_position):
+        cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
+                   thickness=-1)
+
+    for u, v, c in edges:
+        position_u = (int(data.visualize_position[u][0]), int(data.visualize_position[u][1]))
+        position_v = (int(data.visualize_position[v][0]), int(data.visualize_position[v][1]))
+        color_to_rgb = {
+            "red": (0, 0, 255),
+            "blue": (255, 0, 0),
+            "orange": (0, 140, 255),
+            "purple": (128, 0, 128)
+        }
+        cv2.line(img, position_u, position_v, color=color_to_rgb[c], thickness=3)
+
+    img_path = os.path.join(visualize_path, data.img_path[0].split("/")[-1])
+    cv2.imwrite(img_path, img)
