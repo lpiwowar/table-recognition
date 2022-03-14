@@ -1,0 +1,13 @@
+# Python
+__pycache__
+
+# JetBrain
+.idea
+
+# Local
+data_preparation
+train
+
+# Wandb
+wandb
+artifacts
