@@ -124,12 +124,6 @@ class Config(object):
         self.ocr_output_path = Config.validate_file(dataset_prep_config["ocr_output_path"], mandatory=False)
         self.dataset_img_path = Config.validate_file(dataset_prep_config["dataset_img_path"], mandatory=False)
         self.dataset_gt_path = Config.validate_file(dataset_prep_config["dataset_gt_path"], mandatory=False)
-        self.train_list = Config.validate_file(dataset_prep_config["train_list"], mandatory=False)
-        self.test_list = Config.validate_file(dataset_prep_config["test_list"], mandatory=False)
-        self.randomize = Config.validate_bool(dataset_prep_config["randomize"], mandatory=False)
-        self.train_ratio = Config.validate_float(dataset_prep_config["train_ratio"], mandatory=False)
-        self.test_ratio = Config.validate_float(dataset_prep_config["test_ratio"], mandatory=False)
-        self.visualize_graph = Config.validate_bool(dataset_prep_config["visualize_graph"], mandatory=False)
         self.visualize_dir = Config.validate_file(dataset_prep_config["visualize_dir"], mandatory=False)
         self.prepared_data_dir = Config.validate_file(dataset_prep_config["prepared_data_dir"], mandatory=False)
 
@@ -156,11 +150,6 @@ class Config(object):
 
         train_config = config_parser["train"]
         self.learning_rate = Config.validate_float(train_config["learning_rate"], mandatory=False)
-        self.test_input_data_dir = Config.validate_file(train_config["test_input_data_dir"], mandatory=False)
-        self.test_gt_data_dir = Config.validate_file(train_config["test_gt_data_dir"], mandatory=False)
-        self.train_input_data_dir = Config.validate_file(train_config["train_input_data_dir"], mandatory=False)
-        self.train_gt_data_dir = Config.validate_file(train_config["train_gt_data_dir"], mandatory=False)
-        self.train_data_dir = Config.validate_file(train_config["train_data_dir"], mandatory=False)
         self.model_path = train_config["model_path"]
         self.visualize_path = train_config["visualize_path"]
 

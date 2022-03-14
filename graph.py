@@ -112,10 +112,8 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
-            cv2.putText(img,
-                        #  f"{text_line.max_start_row},{text_line.max_end_row},{text_line.max_start_col},{text_line.max_end_col}",
-                        f"{node.id}",
-                        node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1,
+                        cv2.LINE_AA)
 
         # Visualize GT cells
         for node in self.ground_truth_nodes:
@@ -126,45 +124,63 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-
+        # Collect node input attributes
         nodes = {}
         for node in self.nodes:
             nodes[node.id] = node.input_feature_vector
-        # x = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.double)
         x = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
 
+        # Collect node output attributes
         nodes = {}
         for node in self.nodes:
             nodes[node.id] = node.output_feature_vector
-        # y = torch.tensor([nodes[key] for key in sorted(nodes.keys())], dtype=torch.double)
         y = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
 
+        # Collect edges
         nodes1 = [edge.node1.id for edge in self.edges]
         nodes2 = [edge.node2.id for edge in self.edges]
-        # edge_index = torch.tensor([nodes1, nodes2], dtype=torch.long)
         edge_index = torch.tensor([nodes1, nodes2])
 
-        # edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges], dtype=torch.double)
+        # Collect edge input and output attributes
         edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
-        # edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges], dtype=torch.double)
         edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges])
 
+        # Collect positions of nodes in image
         visualize_position = {}
         for node in self.nodes:
             visualize_position[node.id] = node.bbox["center"]
         visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())])
-       #                                   dtype=torch.float)
 
-        data = Data(x=x,
-                    y=y,
-                    edge_index=edge_index,
-                    edge_attr=edge_attr,
-                    edge_output_attr=edge_output_attr,
-                    visualize_position=visualize_position,
-                    img_path=self.img_path)
+        # Collect bounding boxes of nodes in image
+        node_bounding_box={}
+        for node in self.nodes:
+            node_bounding_box[node.id] = node.bbox["corners"]
+        node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
+
+        data = Data(
+                    # --- Input attributes --- #
+                    x=x,                                      # Nodes input attributes
+                    edge_index=edge_index,                    # Definition of edges
+                    edge_attr=edge_attr,                      # Edge input attributes
+
+                    # --- Expected output attributes --- #
+                    y=y,                                      # Nodes output attributes
+                    edge_output_attr=edge_output_attr,        # Edge output attributes
+
+                    # --- Output of model --- #
+                    output_edges=None,
+                    output_nodes=None,
+
+                    # --- Auxiliary attributes --- #
+                    node_image_position=visualize_position,   # Position of nodes in image
+                    node_bounding_box=node_bounding_box,      # Bounding box of node
+                    img_path=self.img_path                    # Path to image
+                    )
         filename = os.path.basename(self.img_path).split(".")[0]
-
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
+
+    def load(self, data):
+        pass
 
 
 class Edge(object):
@@ -195,7 +211,7 @@ class Node(object):
 
     def __init__(self, polygon_pts):
         self.polygon_pts = polygon_pts
-        self.bbox = self.get_node_bbox()
+        self.bbox = self.calculate_node_bbox()
 
         self.id = Node.NODE_COUNTER
         Node.NODE_COUNTER += 1
@@ -212,7 +228,7 @@ class Node(object):
     def __repr__(self):
         return f"<Node: rtree_id={self.id}>"
 
-    def get_node_bbox(self):
+    def calculate_node_bbox(self):
         x_coords = [x for x, _ in self.polygon_pts]
         y_coords = [y for _, y in self.polygon_pts]
         max_x, min_x = max(x_coords), min(x_coords)

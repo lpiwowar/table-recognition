@@ -18,6 +18,7 @@ class SimpleModel(torch.nn.Module):
             torch.nn.ReLU(),
             # torch.nn.Dropout(),
             torch.nn.Linear(8, num_edge_classes),
+            # torch.nn.ReLU(),
         )
         self.conv2 = GATConv(16, num_node_classes, edge_dim=4)
 
@@ -29,4 +30,7 @@ class SimpleModel(torch.nn.Module):
         x = self.conv2(x, edge_index, edge_attr)
 
         # Nodes, Edges
+        # Odstranit softmaxy - nejprve rozsir informaci -> pak transformuj
+        # Positional embbeding
+        # Hrany: Smer, nejblizsi bod (ne stredy) -- Nenacpat jako positional ambbeding?
         return F.log_softmax(x, dim=1), F.log_softmax(edge_attr, dim=1)

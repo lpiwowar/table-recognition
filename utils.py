@@ -114,7 +114,7 @@ def visualize_model_output(data, out_nodes, out_edges):
     }
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.numpy())]
 
-    for node_idx, node_attributes in enumerate(data.visualize_position):
+    for node_idx, node_attributes in enumerate(data.node_image_position):
         G.add_node(node_idx, position=(float(node_attributes[0]), float(node_attributes[1])), type=out_nodes[node_idx])
 
     for u, v, t in edges:
@@ -141,13 +141,13 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.numpy())]
 
     img = cv2.imread(data.img_path[0])
-    for node_idx, node_attributes in enumerate(data.visualize_position):
+    for node_idx, node_attributes in enumerate(data.node_image_position):
         cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
                    thickness=-1)
 
     for u, v, c in edges:
-        position_u = (int(data.visualize_position[u][0]), int(data.visualize_position[u][1]))
-        position_v = (int(data.visualize_position[v][0]), int(data.visualize_position[v][1]))
+        position_u = (int(data.node_image_position[u][0]), int(data.node_image_position[u][1]))
+        position_v = (int(data.node_image_position[v][0]), int(data.node_image_position[v][1]))
         color_to_rgb = {
             "red": (0, 0, 255),
             "blue": (255, 0, 0),
@@ -175,13 +175,13 @@ def visualize_input_image(data, visualize_path):
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, torch.argmax(data.edge_output_attr, dim=1).numpy())]
 
     img = cv2.imread(data.img_path[0])
-    for node_idx, node_attributes in enumerate(data.visualize_position):
+    for node_idx, node_attributes in enumerate(data.node_image_position):
         cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
                    thickness=-1)
 
     for u, v, c in edges:
-        position_u = (int(data.visualize_position[u][0]), int(data.visualize_position[u][1]))
-        position_v = (int(data.visualize_position[v][0]), int(data.visualize_position[v][1]))
+        position_u = (int(data.node_image_position[u][0]), int(data.node_image_position[u][1]))
+        position_v = (int(data.node_image_position[v][0]), int(data.node_image_position[v][1]))
         color_to_rgb = {
             "red": (0, 0, 255),
             "blue": (255, 0, 0),

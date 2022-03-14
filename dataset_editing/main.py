@@ -19,6 +19,8 @@ if __name__ == '__main__':
     for gt_filename, img_filename in zip(gt_filenames, img_filenames):
         print(f"{gt_filename} + {img_filename}")
         table = Table(gt_dir_path + gt_filename, img_dir_path + img_filename)
-        while table.display_table():
+        while table.annotate_table():
             pass
 
+        with open("./output/" + gt_filename, "w") as f:
+            f.write(table.get_xml_string())

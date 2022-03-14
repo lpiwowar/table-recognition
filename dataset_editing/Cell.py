@@ -21,6 +21,7 @@ class Cell(object):
             "end-row": self.end_row,
             "start-col": self.start_col,
             "end-col": self.end_col,
+            "type": self.type,
         }
         cell = ET.Element("cell", kwargs)
         coords = ET.Element("Coords", {'points': self.coords_to_string()})

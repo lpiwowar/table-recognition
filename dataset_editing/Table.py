@@ -61,7 +61,7 @@ class Table(object):
             end_col = xml_cell.attrib["end-col"]
             cell_coords = Table.xml_parse_coord(xml_cell.find("Coords").attrib["points"])
             cell = Cell(start_row, end_row, start_col, end_col, cell_coords, None)
-            cell.type = xml_cell.attrib["type"]
+            # cell.type = xml_cell.attrib["type"]
             self.cells.append(cell)
 
         return
@@ -112,8 +112,13 @@ class Table(object):
                     color = (0, 255, 0)
                     image = cv2.polylines(image, [pts], isClosed, color, thickness)
                     break
-                elif k == ord('e'):
-                    cell.type == "empty"
+                elif k == ord('c'):
+                    cell.type = "data_empty"
+                    color = (0, 255, 255)
+                    image = cv2.polylines(image, [pts], isClosed, color, thickness)
+                    break
+                elif k == ord('x'):
+                    cell.type = "data_mark"
                     color = (0, 0, 255)
                     image = cv2.polylines(image, [pts], isClosed, color, thickness)
                     break
