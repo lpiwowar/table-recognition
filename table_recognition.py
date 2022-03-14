@@ -1,8 +1,8 @@
 import argparse
 
-from config import Config
-from data_preparation import data_preparation
-from train import train
+from table_recognition.config import Config
+from table_recognition.data_preparation import data_preparation
+from table_recognition.train import train
 
 
 def check_arguments(arg):

@@ -1,7 +1,7 @@
 import os
 
 from tqdm import tqdm
-from graph import Graph
+from table_recognition.graph import Graph
 
 
 def data_preparation(conf):
