@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from utils import coords_string_to_tuple_list, tuple_list_to_coords_string
+from table_recognition.utils import coords_string_to_tuple_list, tuple_list_to_coords_string
 
 GT_DIR = "../dataset/cTDaR/ground_truth_renamed"
 IMAGE_DIR = "../dataset/cTDaR/image_jpg"

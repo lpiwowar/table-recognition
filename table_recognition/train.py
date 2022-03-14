@@ -6,13 +6,17 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.utils.metric import accuracy
 from tqdm import tqdm
 
-from dataset import TableDataset
-from model import SimpleModel
-from utils import visualize_output_image
-from utils import visualize_input_image
+from table_recognition.dataset import TableDataset
+from table_recognition.models import SimpleModel
+from table_recognition.graph.utils import visualize_output_image
+from table_recognition.graph.utils import visualize_input_image
 
 
 def train(conf):
+    wandb_config = {
+        "learning_rage": conf.learning_rate,
+    }
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SimpleModel().to(device)
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)

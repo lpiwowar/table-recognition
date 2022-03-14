@@ -1,0 +1,1 @@
+from table_recognition.models.simple_model import SimpleModel
