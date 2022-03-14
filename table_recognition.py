@@ -1,6 +1,6 @@
 import argparse
 
-from config_parser import Config
+from config import Config
 from data_preparation import data_preparation
 from train import train
 
