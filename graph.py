@@ -17,6 +17,8 @@ class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
                  img_path, edge_discovery_method='k-nearest-neighbors',
                  input_graph_colorer="node-position"):
+        Node.NODE_COUNTER = 0
+
         self.config = config
         self.ocr_output_path = ocr_output_path
         self.ground_truth_path = ground_truth_path
@@ -79,6 +81,7 @@ class Graph(object):
         colors = {
             "node": {
                 "header": (51, 204, 51),  # Green
+                "header_mark": (51, 204, 51),  # Green
                 "data": (0, 153, 255),  # Blue
                 "data_empty": (255, 255, 255),  # White
                 "header_empty": (255, 255, 255),  # White
@@ -109,6 +112,8 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
+            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1,
+                        cv2.LINE_AA)
 
         # Visualize GT cells
         for node in self.ground_truth_nodes:
@@ -119,18 +124,63 @@ class Graph(object):
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
 
     def dump(self):
-        x = torch.tensor([node.input_feature_vector for node in self.nodes], dtype=torch.float)
+        # Collect node input attributes
+        nodes = {}
+        for node in self.nodes:
+            nodes[node.id] = node.input_feature_vector
+        x = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
 
+        # Collect node output attributes
+        nodes = {}
+        for node in self.nodes:
+            nodes[node.id] = node.output_feature_vector
+        y = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
+
+        # Collect edges
         nodes1 = [edge.node1.id for edge in self.edges]
         nodes2 = [edge.node2.id for edge in self.edges]
-        edge_index = torch.tensor([nodes1, nodes2], dtype=torch.float)
+        edge_index = torch.tensor([nodes1, nodes2])
 
+        # Collect edge input and output attributes
         edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
         edge_output_attr = torch.tensor([edge.output_feature_vector for edge in self.edges])
 
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, edge_output_attr=edge_output_attr)
+        # Collect positions of nodes in image
+        visualize_position = {}
+        for node in self.nodes:
+            visualize_position[node.id] = node.bbox["center"]
+        visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())])
+
+        # Collect bounding boxes of nodes in image
+        node_bounding_box={}
+        for node in self.nodes:
+            node_bounding_box[node.id] = node.bbox["corners"]
+        node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
+
+        data = Data(
+                    # --- Input attributes --- #
+                    x=x,                                      # Nodes input attributes
+                    edge_index=edge_index,                    # Definition of edges
+                    edge_attr=edge_attr,                      # Edge input attributes
+
+                    # --- Expected output attributes --- #
+                    y=y,                                      # Nodes output attributes
+                    edge_output_attr=edge_output_attr,        # Edge output attributes
+
+                    # --- Output of model --- #
+                    output_edges=None,
+                    output_nodes=None,
+
+                    # --- Auxiliary attributes --- #
+                    node_image_position=visualize_position,   # Position of nodes in image
+                    node_bounding_box=node_bounding_box,      # Bounding box of node
+                    img_path=self.img_path                    # Path to image
+                    )
         filename = os.path.basename(self.img_path).split(".")[0]
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
+
+    def load(self, data):
+        pass
 
 
 class Edge(object):
@@ -161,7 +211,7 @@ class Node(object):
 
     def __init__(self, polygon_pts):
         self.polygon_pts = polygon_pts
-        self.bbox = self.get_node_bbox()
+        self.bbox = self.calculate_node_bbox()
 
         self.id = Node.NODE_COUNTER
         Node.NODE_COUNTER += 1
@@ -178,7 +228,7 @@ class Node(object):
     def __repr__(self):
         return f"<Node: rtree_id={self.id}>"
 
-    def get_node_bbox(self):
+    def calculate_node_bbox(self):
         x_coords = [x for x, _ in self.polygon_pts]
         y_coords = [y for _, y in self.polygon_pts]
         max_x, min_x = max(x_coords), min(x_coords)
@@ -227,11 +277,13 @@ class KNearestNeighbors(object):
 class OutputGraphColorer(object):
     TYPE_2_FEATURE_VECTOR = {
        "node": {
-           "header": [0],
-           "data": [1],
-           "data_mark": [1],
-           "data_empty": [1],
-           None: [1]
+           "header": [1, 0],
+           "header_mark": [1, 0],
+           "header_empty": [1, 0],
+           "data": [0, 1],
+           "data_mark": [0, 1],
+           "data_empty": [0, 1],
+           None: [0, 1]
        },
        "edge": {
            "cell": [1, 0, 0, 0],
@@ -267,6 +319,9 @@ class OutputGraphColorer(object):
                 cell_type = OutputGraphColorer.majority_type(cells_intersections_types)
                 node.type = cell_type
                 node.output_feature_vector = OutputGraphColorer.TYPE_2_FEATURE_VECTOR["node"][node.type]
+            else:
+                # WARNING
+                node.output_feature_vector = [0, 1]
 
     def color_edges(self):
         for edge in self.graph.edges:
@@ -324,17 +379,37 @@ class OutputGraphColorer(object):
         if node1_row_range == node2_row_range and node1_col_range == node2_col_range:
             return "cell"
 
+        # Nodes are in the same column
         if node1_row_range <= node2_row_range or node2_row_range <= node1_row_range:
-            return "vertical"
+            if OutputGraphColorer.nodes_vertically_visible(node1, node2):
+                return "vertical"
+            else:
+                return "no-relationship"
 
+        # Nodes are in the same row
         if node1_col_range <= node2_col_range or node2_col_range <= node1_col_range:
-            return "horizontal"
+            if OutputGraphColorer.nodes_horizontally_visible(node1, node2):
+                return "horizontal"
+            else:
+                return "no-relationship"
 
         return "no-relationship"
 
     @staticmethod
+    def nodes_vertically_visible(node1, node2):
+        bottom_cell_row = max(node1["start-row"], node2["start-row"])
+        top_cell_row = min(node1["end-row"], node2["end-row"])
+        return True if abs(bottom_cell_row - top_cell_row) <= 1 else False
+
+    @staticmethod
+    def nodes_horizontally_visible(node1, node2):
+        right_cell_column = max(node1["start-col"], node2["start-col"])
+        left_cell_column = min(node1["end-col"], node2["end-col"])
+        return True if abs(right_cell_column - left_cell_column) <= 1 else False
+
+    @staticmethod
     def majority_type(types):
-        types_order = {"data": 1, "header": 1, "data_empty": 0, "header_empty": 0,
+        types_order = {"data": 1, "header": 1, "header_empty": 1, "header_mark": 1, "data_empty": 0, "header_empty": 0,
                        "data_mark": 0}
         return max(types, key=lambda x: types_order[x])
 
@@ -342,23 +417,38 @@ class OutputGraphColorer(object):
 class InputGraphColorerNodePosition(object):
     def __init__(self, graph):
         self.graph = graph
+        self.img_height, self.img_width, _ = cv2.imread(self.graph.img_path).shape
 
     def color_graph(self):
         self.color_nodes()
         self.color_edges()
 
     def color_nodes(self):
-        height, width, _ = cv2.imread(self.graph.img_path).shape
         for node in self.graph.nodes:
             x, y = node.bbox["center"]
-            position = [x / width, y / height]
-            node.input_feature_vector = position
+            position = [x / self.img_width, y / self.img_height]
+
+            [(min_x, min_y), (max_x, max_y)] = node.bbox["corners"]
+            bbox_width = abs(max_x - min_x) / self.img_width
+            bbox_height = abs(max_y - min_y) / self.img_height
+
+            node.input_feature_vector = position + [bbox_width, bbox_height]
 
     def color_edges(self):
         for edge in self.graph.edges:
+            # Center of node1
             node1_x, node1_y = edge.node1.bbox["center"]
-            node2_x, node2_y = edge.node2.bbox["center"]
-            distance = np.linalg.norm(np.array([node1_x, node1_y]) - np.array([node2_x, node2_y]))
-            edge.input_feature_vector = [distance]
+            node1_x, node1_y = node1_x / self.img_width, node1_y / self.img_height
 
+            # Center of node2
+            node2_x, node2_y = edge.node2.bbox["center"]
+            node2_x, node2_y = node2_x / self.img_width, node2_y / self.img_height
+
+            # Feature1: Distance of the two centers
+            distance = np.linalg.norm(np.array([node1_x, node1_y]) - np.array([node2_x, node2_y]))
+
+            # Feature2: Average of the two centers
+            avg_position_x, avg_position_y = (node1_x + node2_x) / 2, (node1_y + node2_y) / 2
+
+            edge.input_feature_vector = [float(distance)] + [avg_position_x, avg_position_y]
 

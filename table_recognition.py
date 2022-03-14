@@ -1,41 +1,8 @@
 import argparse
-import os
 
-from tqdm import tqdm
-
-from config_parser import Config
-from graph import Graph
-
-
-def data_preparation(conf):
-    """
-    Prepare graph representation that can be used to train the GNN.
-
-    :type conf:  Config
-    :param conf: Instance of Config class that contains configuration
-                 information
-    """
-    ocr_files = [file for file in os.listdir(conf.ocr_output_path)]
-    gt_files = [file for file in os.listdir(conf.dataset_gt_path)]
-    img_files = [file for file in os.listdir(conf.dataset_img_path)]
-
-    for ocr_file in tqdm(ocr_files):
-        ocr_file_prefix = ocr_file.split(".")[0]
-        if ocr_file_prefix + ".xml" not in gt_files:
-            raise Exception(f"ERROR: {ocr_file_prefix + '.xml'} is missing in the dataset GT dir.")
-        if ocr_file_prefix + ".jpg" not in img_files:
-            raise Exception(f"ERROR: {ocr_file_prefix + '.jpg'} is missing in the dataset IMG dir.")
-
-        ocr_file_path = os.path.join(config.ocr_output_path, ocr_file)
-        dataset_gt_path = os.path.join(config.dataset_gt_path, ocr_file_prefix + '.xml')
-        dataset_img_path = os.path.join(config.dataset_img_path, ocr_file_prefix + '.jpg')
-
-        graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path)
-        graph.initialize()
-        graph.color_output()
-        graph.color_input()
-        graph.visualize()
-        graph.dump()
+from config import Config
+from data_preparation import data_preparation
+from train import train
 
 
 def check_arguments(arg):
@@ -64,7 +31,7 @@ if __name__ == "__main__":
                         action="store_true")
     parser.add_argument("--config-file",
                         help="Path to configuration file",
-                        default="./table_recognition_config.ini")
+                        default="./config.ini")
     args = parser.parse_args()
 
     if not check_arguments(args):
@@ -74,5 +41,16 @@ if __name__ == "__main__":
 
     if args.data_preparation:
         data_preparation(config)
-    # for file in os.listdir(config.train_input_data_dir):
-    #   print(file)
+    elif args.train:
+        train(config)
+
+    # run = wandb.init(project="table-recognition",
+    #                  name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
+    #                  entity="lpiwowar")
+
+    # artifact = wandb.Artifact('ctdar-dataset-ground-truth', type='dataset')
+    # dir_path = "/home/lpiwowar-personal/PycharmProjects/master-thesis/dataset/cTDaR/ground_truth_cropped"
+    # for file in os.listdir(dir_path):
+    #     artifact.add_file(os.path.join(dir_path, file))
+
+    # run.log_artifact(artifact)

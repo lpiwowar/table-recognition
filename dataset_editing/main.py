@@ -22,3 +22,5 @@ if __name__ == '__main__':
         while table.annotate_table():
             pass
 
+        with open("./output/" + gt_filename, "w") as f:
+            f.write(table.get_xml_string())
