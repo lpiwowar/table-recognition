@@ -8,14 +8,14 @@ from torch.utils.data import Dataset
 class TableDataset(Dataset):
     def __init__(self, config):
         self.config = config
-        self.data_files = os.listdir(self.config.train_data_dir)
+        self.data_files = os.listdir(self.config.data_dir)
 
     def __len__(self):
         return len(self.data_files)
 
     def __getitem__(self, item):
         data_file = self.data_files[item]
-        return torch.load(os.path.join(self.config.train_data_dir, data_file))
+        return torch.load(os.path.join(self.config.data_dir, data_file))
 
 
 class TableDataset2(Dataset):

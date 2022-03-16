@@ -5,4 +5,5 @@ torch-geometric==2.0.2
 opencv-python==4.5.5.62
 Shapely==1.8.1.post1
 tqdm==4.62.3
+wandb==0.12.11
 

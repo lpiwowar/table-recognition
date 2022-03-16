@@ -2,7 +2,7 @@ import argparse
 
 from table_recognition.config import Config
 from table_recognition.data_preparation import data_preparation
-from table_recognition.train import train
+from table_recognition.train import train_pipeline
 
 
 def check_arguments(arg):
@@ -42,14 +42,18 @@ if __name__ == "__main__":
     if args.data_preparation:
         data_preparation(config)
     elif args.train:
-        train(config)
+        train_pipeline(config)
+
+    # import wandb
+    # import datetime
+    # import os
 
     # run = wandb.init(project="table-recognition",
-    #                  name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
-    #                  entity="lpiwowar")
+    #                 name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
+    #                 entity="lpiwowar")
 
-    # artifact = wandb.Artifact('ctdar-dataset-ground-truth', type='dataset')
-    # dir_path = "/home/lpiwowar-personal/PycharmProjects/master-thesis/dataset/cTDaR/ground_truth_cropped"
+    # artifact = wandb.Artifact('ocr-output', type='dataset')
+    # dir_path = "/home/lpiwowar-personal/PycharmProjects/master-thesis/data_preparation/ocr_output"
     # for file in os.listdir(dir_path):
     #     artifact.add_file(os.path.join(dir_path, file))
 

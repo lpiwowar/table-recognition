@@ -57,12 +57,15 @@ class Config(object):
         self.prepared_data_dir = None
 
         # Train parameters
+        self.wandb_mode = None
         self.learning_rate = None
+        self.batch_size = None
+        self.epochs = None
         self.test_input_data_dir = None
         self.test_gt_data_dir = None
         self.train_input_data_dir = None
         self.train_gt_data_dir = None
-        self.train_data_dir = None
+        self.data_dir = None
         self.model_path = None
         self.visualize_path = None
 
@@ -149,9 +152,13 @@ class Config(object):
         """
 
         train_config = config_parser["train"]
+        self.wandb_mode = train_config["wandb_mode"]
         self.learning_rate = Config.validate_float(train_config["learning_rate"], mandatory=False)
+        self.batch_size = Config.validate_int(train_config["batch_size"], mandatory=False)
+        self.epochs = Config.validate_int(train_config["epochs"], mandatory=False)
         self.model_path = train_config["model_path"]
         self.visualize_path = train_config["visualize_path"]
+        self.data_dir = Config.validate_file(train_config["data_dir"], mandatory=False)
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):
@@ -209,6 +216,16 @@ class Config(object):
         """
         try:
             return float(str_float)
+        except Exception as e:
+            if mandatory:
+                raise e
+            else:
+                return None
+
+    @staticmethod
+    def validate_int(str_int, mandatory=True):
+        try:
+            return int(str_int)
         except Exception as e:
             if mandatory:
                 raise e
