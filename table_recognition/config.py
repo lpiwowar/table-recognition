@@ -126,7 +126,7 @@ class Config(object):
 
     def parse_logging_section(self, config_parser):
         log_level = config_parser["logging"]["log_level"]
-        self.tqdm_disable = config_parser["logging"]["tqdm_disable"]
+        self.tqdm_disable = Config.validate_bool(config_parser["logging"]["tqdm_disable"])
 
         log_level_dict = {"INFO": logging.INFO, "DEBUG": logging.DEBUG, "WARNING": logging.WARNING}
         logging.basicConfig(format='[%(levelname)s] %(asctime)s => %(message)s',
