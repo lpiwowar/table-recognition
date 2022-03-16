@@ -1,4 +1,5 @@
 import configparser
+import logging
 import os
 
 
@@ -68,9 +69,14 @@ class Config(object):
         self.data_dir = None
         self.model_path = None
         self.visualize_path = None
+        self.preload_model = None
 
         # Infer section
         self.input_data_dir = None
+
+        # Logger
+        self.logger = None
+        self.tqdm_disable = None
 
         self.parse_ini_config_file()
 
@@ -92,7 +98,8 @@ class Config(object):
                f"[dataset-preparation].train_ratio={self.train_ratio} " \
                f"[dataset-preparation].test_ratio={self.test_ratio} " \
                f"[dataset-preparation].visualize_graph={self.visualize_graph} " \
-               f"[dataset-preparation].visualize_dir={self.visualize_dir}>"
+               f"[dataset-preparation].visualize_dir={self.visualize_dir} " \
+               f"[logging].logger={self.logger}>"
 
     def parse_ini_config_file(self):
         """Function that parses the INI configuration file."""
@@ -112,6 +119,20 @@ class Config(object):
 
         if "infer" in config_parser:
             self.parse_infer_section(config_parser)
+
+        if "logging" in config_parser:
+            self.parse_logging_section(config_parser)
+
+
+    def parse_logging_section(self, config_parser):
+        log_level = config_parser["logging"]["log_level"]
+        self.tqdm_disable = config_parser["logging"]["tqdm_disable"]
+
+        log_level_dict = {"INFO": logging.INFO, "DEBUG": logging.DEBUG, "WARNING": logging.WARNING}
+        logging.basicConfig(format='[%(levelname)s] %(asctime)s => %(message)s',
+                            datefmt='(%Y-%m-%d %H:%M:%S)')
+        self.logger = logging.getLogger("table_recognition")
+        self.logger.setLevel(log_level_dict[log_level])
 
     def parse_dataset_preparation_section(self, config_parser):
         """
@@ -159,6 +180,7 @@ class Config(object):
         self.model_path = train_config["model_path"]
         self.visualize_path = train_config["visualize_path"]
         self.data_dir = Config.validate_file(train_config["data_dir"], mandatory=False)
+        self.preload_model = Config.validate_file(train_config["preload_model"], mandatory=False)
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):

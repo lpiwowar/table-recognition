@@ -159,8 +159,7 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     img_path = os.path.join(visualize_path, data.img_path[0].split("/")[-1])
     cv2.imwrite(img_path, img)
     # cv2.imshow("visualize output", img)
-    cv2.waitKey(0)
-
+    # cv2.waitKey(0)
 
 def visualize_input_image(data, visualize_path):
     us = data.edge_index[0]

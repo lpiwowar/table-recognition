@@ -16,7 +16,7 @@ def data_preparation(conf):
     gt_files = [file for file in os.listdir(conf.dataset_gt_path)]
     img_files = [file for file in os.listdir(conf.dataset_img_path)]
 
-    for ocr_file in tqdm(ocr_files):
+    for ocr_file in tqdm(ocr_files, disable=conf.tqdm_disable):
         ocr_file_prefix = ocr_file.split(".")[0]
         if ocr_file_prefix + ".xml" not in gt_files:
             raise Exception(f"ERROR: {ocr_file_prefix + '.xml'} is missing in the dataset GT dir.")
