@@ -174,6 +174,7 @@ class Graph(object):
                     node_bounding_box=node_bounding_box,      # Bounding box of node
                     img_path=self.img_path                    # Path to image
                     )
+
         filename = os.path.basename(self.img_path).split(".")[0]
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
 

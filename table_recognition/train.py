@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import torch
 import wandb
@@ -16,6 +17,9 @@ def make(hyperparams, conf):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SimpleModel().to(device)
 
+    if conf.preload_model:
+        model.load_state_dict(torch.load(conf.model_path))
+
     table_dataset = TableDataset(conf)
 
     train_size = int(0.8 * len(table_dataset))
@@ -23,7 +27,7 @@ def make(hyperparams, conf):
     train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
 
     train_loader = DataLoader(train_dataset, batch_size=hyperparams.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=hyperparams.batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=1)
 
     optimizer = torch.optim.Adam(model.parameters())
     criterion = torch.nn.NLLLoss()
@@ -37,7 +41,8 @@ def train(model, train_loader, test_loader, criterion, optimizer, hyperparams, c
     batch_counter = 0
     example_counter = 0
     best_accuracy = 0
-    for _ in tqdm(range(hyperparams.epochs)):
+    for epoch in tqdm(range(hyperparams.epochs), disable=conf.tqdm_disable):
+        conf.logger.info(f"Running epoch: {epoch}/{hyperparams.epochs}")
         for data in train_loader:
             loss, out_nodes, out_edges = train_batch(data, model, optimizer, criterion)
 
@@ -58,8 +63,8 @@ def train(model, train_loader, test_loader, criterion, optimizer, hyperparams, c
                            "accuracy_edges": accuracy_edges}, step=example_counter)
 
                 if accuracy_edges > best_accuracy:
+                    conf.logger.info(f"Saving model with accuracy: {accuracy_edges}")
                     torch.save(model.state_dict(), conf.model_path)
-
 
 def train_batch(data, model, optimizer, criterion):
     out_nodes, out_edges = model(data)
@@ -80,12 +85,13 @@ def train_batch(data, model, optimizer, criterion):
 def test(model, test_loader, conf):
     model.eval()
 
+    conf.logger.info("Testing trained neural network.")
     with torch.no_grad():
-        for data in test_loader:
+        for data in tqdm(test_loader, disable=conf.tqdm_disable):
             out_nodes, out_edges = model(data)
             out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
             visualize_output_image(data, out_nodes, out_edges, conf.visualize_path)
-            # visualize_input_image(data, "/home/lpiwowar-personal/PycharmProjects/master-thesis/train/input_images_test")
+            # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
 
 def train_pipeline(conf):
