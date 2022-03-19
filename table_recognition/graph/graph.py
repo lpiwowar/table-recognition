@@ -5,7 +5,7 @@ import cv2
 import torch
 from torch_geometric.data import Data
 
-from table_recognition.graph.colorers import InputGraphColorerNodePosition
+from table_recognition.graph.colorers import BasicGraphColorer
 from table_recognition.graph.colorers import OutputGraphColorer
 from table_recognition.graph.utils import coords_string_to_tuple_list
 from table_recognition.graph.edge_discovery import KNearestNeighbors
@@ -14,7 +14,7 @@ from table_recognition.graph.edge_discovery import KNearestNeighbors
 class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
                  img_path, edge_discovery_method='k-nearest-neighbors',
-                 input_graph_colorer="node-position"):
+                 input_graph_colorer="basic-graph-colorer"):
         Node.NODE_COUNTER = 0
 
         self.config = config
@@ -35,7 +35,7 @@ class Graph(object):
         self.output_graph_colorer = OutputGraphColorer(self)
 
         self.input_graph_colorers = {
-            "node-position": InputGraphColorerNodePosition(self)
+            "basic-graph-colorer": BasicGraphColorer(self)
         }
 
     def initialize(self):

@@ -2,7 +2,16 @@ import cv2
 import numpy as np
 
 
-class InputGraphColorerNodePosition(object):
+class BasicGraphColorer(object):
+    """
+    Node features:
+        - Normalized position
+        - Normalized bounding box width/height
+
+    Edge features:
+        - Normalized distance between centers of bounding boxes
+        - Average of the bounding boxes' centers
+    """
     def __init__(self, graph):
         self.graph = graph
         self.img_height, self.img_width, _ = cv2.imread(self.graph.img_path).shape
