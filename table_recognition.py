@@ -2,7 +2,7 @@ import argparse
 
 from table_recognition.config import Config
 from table_recognition.data_preparation import data_preparation
-from table_recognition.train import train_pipeline
+from table_recognition import Trainer
 
 
 def check_arguments(arg):
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     if args.data_preparation:
         data_preparation(config)
     elif args.train:
-        train_pipeline(config)
+        Trainer(config)
 
     # import wandb
     # import datetime

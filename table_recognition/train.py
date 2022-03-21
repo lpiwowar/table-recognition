@@ -13,174 +13,177 @@ from table_recognition.graph.utils import visualize_output_image
 from table_recognition.graph.utils import visualize_input_image
 
 
-def make(hyperparams, conf):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = SimpleModel().to(device)
+class Trainer(object):
+    def __init__(self, conf):
+        self.conf = conf
+        self.device = None
+        self.model = None
 
-    if conf.preload_model:
-        model.load_state_dict(torch.load(conf.model_path))
+        self.train_loader = None
+        self.test_loader = None
 
-    table_dataset = TableDataset(conf)
+        self.optimizer = None
+        self.criterion = None
 
-    train_size = int(0.8 * len(table_dataset))
-    test_size = len(table_dataset) - train_size
-    train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
+        self.init_resources()
+        self.train_pipeline()
 
-    train_loader = DataLoader(train_dataset, batch_size=hyperparams.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=1)
+    def init_resources(self):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = SimpleModel().to(self.device)
+        self.conf.logger.info(f"Using {self.device} device for training.")
+        self.conf.logger.info(f"Training {type(self.model).__name__} model.")
 
-    optimizer = torch.optim.Adam(model.parameters())
-    criterion = torch.nn.NLLLoss()
+        if self.conf.preload_model:
+            self.model.load_state_dict(torch.load(self.conf.model_path))
 
-    return model, train_loader, test_loader, criterion, optimizer
+        table_dataset = TableDataset(self.conf)
 
+        train_size = int(self.conf.train_percentage * len(table_dataset))
+        test_size = len(table_dataset) - train_size
+        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
 
-def train(model, train_loader, test_loader, criterion, optimizer, hyperparams, conf):
-    wandb.watch(model, criterion, log="all", log_freq=10)
+        self.train_loader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
+        self.test_loader = DataLoader(test_dataset, batch_size=1)
 
-    batch_counter = 0
-    example_counter = 0
-    best_accuracy = 0
-    for epoch in tqdm(range(hyperparams.epochs), disable=conf.tqdm_disable):
-        conf.logger.info(f"Running epoch: {epoch}/{hyperparams.epochs}")
-        for data in train_loader:
-            loss, out_nodes, out_edges = train_batch(data, model, optimizer, criterion)
+        self.optimizer = torch.optim.Adam(self.model.parameters())
+        self.criterion = torch.nn.NLLLoss()
 
-            batch_counter += 1
-            example_counter += len(data)
-            if (batch_counter % 25) == 0:
+    def train_pipeline(self):
+        hyperparameters = dict(
+            learning_rage=self.conf.learning_rate,
+            batch_size=self.conf.batch_size,
+            epochs=self.conf.epochs
+        )
+
+        wandb_params = dict(
+            project="table-recognition",
+            name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
+            mode=self.conf.wandb_mode,
+            config=hyperparameters
+        )
+
+        with wandb.init(**wandb_params):
+            self.train()
+            self.test(load_model=True, visualize=True)
+
+    def train(self):
+        self.conf.logger.info("Starting training ...")
+        wandb.watch(self.model, self.criterion, log="all", log_freq=10)
+
+        epoch_best_accuracy_edges = 0
+        epoch_accuracy_nodes = []
+        epoch_accuracy_edges = []
+        epoch_loss = []
+
+        for epoch in tqdm(range(self.conf.epochs), disable=self.conf.tqdm_disable):
+            self.conf.logger.info(f"Running epoch: {epoch}/{self.conf.epochs}")
+            for data in self.train_loader:
+                loss, out_nodes, out_edges = self.train_batch(data)
+                epoch_loss += [float(loss)]
+
                 exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
                 out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
                 out_edges = torch.argmax(torch.exp(out_edges), dim=1)
 
-                accuracy_nodes = accuracy(exp_out_nodes, out_nodes)
-                accuracy_edges = accuracy(exp_out_edges, out_edges)
+                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
 
-                wandb.log({"loss": loss,
-                           "accuracy_nodes": accuracy_nodes,
-                           "accuracy_edges": accuracy_edges}, step=example_counter)
+            # Calculate TRAIN metrics
+            epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
+            epoch_accuracy_edges_avg = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
+            epoch_loss = sum(epoch_loss) / len(epoch_loss)
+            self.conf.logger.info(f"TRAIN DATA => "
+                                  f"[accuracy nodes: {epoch_accuracy_nodes_avg}] "
+                                  f"[accuracy edges: {epoch_accuracy_edges_avg}] "
+                                  f"[loss: {epoch_loss}]")
 
-                if accuracy_edges > best_accuracy:
-                    conf.logger.info(f"Saving model with accuracy: {accuracy_edges}")
-                    torch.save(model.state_dict(), conf.model_path)
+            # Calculate TEST metrics
+            metrics = self.test(visualize=False, load_model=False)
 
-def train_batch(data, model, optimizer, criterion):
-    out_nodes, out_edges = model(data)
+            # Log metrics to WANDB
+            wandb.log({"TRAIN DATA - loss": epoch_loss,
+                       "TRAIN DATA - accuracy nodes": epoch_accuracy_nodes_avg,
+                       "TRAIN DATA - accuracy edges": epoch_accuracy_edges_avg,
+                       "TEST DATA - accuracy nodes": metrics["accuracy_nodes"],
+                       "TEST DATA - accuracy edges": metrics["accuracy_edges"],
+                       "TEST DATA - loss": metrics["loss"]
+                       }, step=epoch)
 
-    y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
-    loss_nodes = criterion(out_nodes, y)
-    loss_edges = criterion(out_edges, edge_output_attr)
+            # Save model if accuracy has improved
+            if metrics["accuracy_edges"] > epoch_best_accuracy_edges:
+                self.conf.logger.info(f"Saving model with accuracy: {metrics['accuracy_edges']}")
+                epoch_best_accuracy_edges = metrics["accuracy_edges"]
+                torch.save(self.model.state_dict(), self.conf.model_path)
 
-    optimizer.zero_grad()
-    # loss_nodes.backward(retain_graph=True)
-    loss_edges.backward()
+            epoch_accuracy_nodes_avg = []
+            epoch_accuracy_edges_avg = []
+            epoch_loss = []
 
-    optimizer.step()
+    def train_batch(self, data, evaluation=False):
+        # print(data.img_path)
+        out_nodes, out_edges = self.model(data)
+        y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
 
-    return loss_edges, out_nodes, out_edges
+        loss_nodes = self.criterion(out_nodes, y)
+        loss_edges = self.criterion(out_edges, edge_output_attr)
 
-
-def test(model, test_loader, conf):
-    model.eval()
-
-    conf.logger.info("Testing trained neural network.")
-    with torch.no_grad():
-        for data in tqdm(test_loader, disable=conf.tqdm_disable):
-            out_nodes, out_edges = model(data)
-            out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
-            visualize_output_image(data, out_nodes, out_edges, conf.visualize_path)
-            # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
-
-
-def train_pipeline(conf):
-    hyperparameters = dict(
-        learning_rage=conf.learning_rate,
-        batch_size=conf.batch_size,
-        epochs=conf.epochs
-    )
-
-    wandb_params = dict(
-        project="table-recognition",
-        name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
-        mode=conf.wandb_mode,
-        config=hyperparameters
-    )
-
-    with wandb.init(**wandb_params):
-        hyperparams = wandb.config
-        model, train_loader, test_loader, criterion, optimizer = make(hyperparams, conf)
-        train(model, train_loader, test_loader, criterion, optimizer, hyperparams, conf)
-        test(model, test_loader, conf)
-
-"""
-    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
-
-
-    #wandb.init(project="table-recognition",
-    #           name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
-    #           entity="lpiwowar",
-    #           mode=conf.wandb_mode,
-    #           config=wandb_config)
-    #wandb.watch(model)
-
-    average_loss_edges, average_loss_nodes = [], []
-    counter = 0
-    best_accuracy_edges = 0
-
-    LOAD_MODEL = False
-    if LOAD_MODEL:
-        model.load_state_dict(torch.load(conf.model_path))
-
-    for epoch in tqdm(range(100)):
-        for data in train_loader:
-            optimizer.zero_grad()
-            out_nodes, out_edges = model(data)
-
-            y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
-            loss_nodes = criterion(out_nodes, y)
-            loss_edges = criterion(out_edges, edge_output_attr)
-
+        if not evaluation:
+            self.optimizer.zero_grad()
             # loss_nodes.backward(retain_graph=True)
             loss_edges.backward()
+            self.optimizer.step()
 
-            counter += 1
-            average_loss_edges.append(loss_edges)
-            average_loss_nodes.append(loss_nodes)
-            if counter > 50:
-                # Log loss
-                counter = 0
-                avg_edges = sum(average_loss_edges) / len(average_loss_edges)
-                avg_nodes = sum(average_loss_nodes) / len(average_loss_nodes)
-                wandb.log({"loss_edges": avg_edges, "loss_nodes": avg_nodes})
-                average_loss_edges, average_loss_nodes = [], []
+        return loss_edges, out_nodes, out_edges
 
-            optimizer.step()
+    def test(self, load_model=False, visualize=False):
+        if load_model:
+            self.conf.logger.info(f"Testing model with weights from {self.conf.model_path}.")
+            self.model.load_state_dict(torch.load(self.conf.model_path))
+        else:
+            self.conf.logger.info("Testing neural network with current weights.")
 
-        # Log accuracy
-        for data in test_loader:
-            out_nodes, out_edges = model(data)
-            out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
+        self.model.eval()
+        with torch.no_grad():
+            counter = 0
+            epoch_accuracy_nodes = []
+            epoch_accuracy_edges = []
+            epoch_loss = []
+            for data in tqdm(self.test_loader, disable=self.conf.tqdm_disable):
+                counter += 1
+                # conf.logger.info(f"Tested {counter}/{len(test_loader)} images ...")
 
-            exp_out_nodes = torch.argmax(data.y, dim=1)
-            exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
+                # out_nodes, out_edges = model(data)
+                loss, out_nodes, out_edges = self.train_batch(data, evaluation=True)
+                epoch_loss += [float(loss)]
 
-            accuracy_nodes = accuracy(exp_out_nodes, out_nodes)
-            accuracy_edges = accuracy(exp_out_edges, out_edges)
-            wandb.log({"accuracy_nodes": accuracy_nodes, "accuracy_edges": accuracy_edges})
+                # out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
 
-            if accuracy_edges > best_accuracy_edges:
-                torch.save(model.state_dict(), conf.model_path)
-                best_accuracy_edges = accuracy_edges
+                exp_out_nodes = torch.argmax(data.y, dim=1)
+                exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
-    print(f"Best accuracy: {best_accuracy_edges}")
+                out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
+                out_edges = torch.argmax(torch.exp(out_edges), dim=1)
 
-    model.load_state_dict(torch.load(conf.model_path))
+                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
 
-    for data in test_loader:
-        out_nodes, out_edges = model(data)
-        out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
-        visualize_output_image(data, out_nodes, out_edges, conf.visualize_path)
-        visualize_input_image(data, "/home/lpiwowar-personal/PycharmProjects/master-thesis/input_images_test")
-"""
+                if visualize:
+                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
+                # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
+
+            accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
+            accuracy_edges = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
+            epoch_loss = sum(epoch_loss) / len(epoch_loss)
+            self.conf.logger.info(f"TEST DATA => "
+                                  f"[accuracy nodes: {accuracy_nodes}] "
+                                  f"[accuracy edges: {accuracy_edges}] "
+                                  f"[loss: {epoch_loss}]")
+
+            return {
+                "accuracy_nodes": accuracy_nodes,
+                "accuracy_edges": accuracy_edges,
+                "loss": loss
+            }

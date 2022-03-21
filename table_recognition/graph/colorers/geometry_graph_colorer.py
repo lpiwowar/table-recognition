@@ -154,16 +154,16 @@ class GeometryGraphColorer(object):
                 if (x_max - x_min) < 0:
                     x_overlap = 0
 
-            if edge.node1.id == 96 and edge.node2.id == 92:
-                print(f"bbox1: {edge.node1.bbox['rtree']}")
-                print(f"bbox2: {edge.node2.bbox['rtree']}")
+            # if edge.node1.id == 96 and edge.node2.id == 92:
+            #    print(f"bbox1: {edge.node1.bbox['rtree']}")
+            #    print(f"bbox2: {edge.node2.bbox['rtree']}")
 
             if y_overlap > 0:
                 xs = [node1_min_x, node2_min_x, node1_max_x, node2_max_x]
                 xs.sort()
                 bbox_in_between = (xs[1], y_min, xs[2], y_max)
-                if edge.node1.id == 96 and edge.node2.id == 92:
-                    print(f"bbox_in_between: {bbox_in_between}")
+                # if edge.node1.id == 96 and edge.node2.id == 92:
+                #     print(f"bbox_in_between: {bbox_in_between}")
 
                 nodes_intersections_idx = list(self.rtree_index.intersection(bbox_in_between))
                 if edge.node1.id in nodes_intersections_idx:
@@ -173,8 +173,8 @@ class GeometryGraphColorer(object):
                 nodes = get_multiple_values_from_dict(self.rtree_index_2_node, nodes_intersections_idx)
 
                 bbox_in_between_set = set(range(y_min, y_max + 1))
-                if edge.node1.id == 96 and edge.node2.id == 92:
-                    print(f"bbox_in_between_set: {bbox_in_between_set}")
+                # if edge.node1.id == 96 and edge.node2.id == 92:
+                #     print(f"bbox_in_between_set: {bbox_in_between_set}")
 
                 for node in nodes:
                     iter_node_y_max = node.bbox["rtree"][3]
@@ -185,8 +185,8 @@ class GeometryGraphColorer(object):
                 bbox_in_between_list = list(bbox_in_between_set)
                 bbox_in_between_list.sort()
 
-                if edge.node1.id == 96 and edge.node2.id == 92:
-                    print(f"bbox_in_between_list: {bbox_in_between_list}")
+                # if edge.node1.id == 96 and edge.node2.id == 92:
+                #     print(f"bbox_in_between_list: {bbox_in_between_list}")
                 if len(bbox_in_between_list) <= 0:
                     y_overlap = 0
                 else:
@@ -195,8 +195,8 @@ class GeometryGraphColorer(object):
                 y_min_side = min(abs(node1_max_y - node1_min_y), abs(node2_max_y - node2_min_y))
                 y_overlap = y_overlap / y_min_side
 
-                if edge.node1.id == 96 and edge.node2.id == 92:
-                    print(f"y_overlap: {y_overlap}")
+                # if edge.node1.id == 96 and edge.node2.id == 92:
+                #    print(f"y_overlap: {y_overlap}")
 
                 #if (x_max - x_min) < 0:
                 #    y_overlap = 0

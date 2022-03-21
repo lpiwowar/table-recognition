@@ -5,11 +5,11 @@ import torch.nn.functional as F
 
 
 class SimpleModel(torch.nn.Module):
-    def __init__(self, num_node_features=4, num_edge_classes=4, num_node_classes=2):
+    def __init__(self, num_node_features=4, num_edge_features=3, num_edge_classes=4, num_node_classes=2):
         super().__init__()
-        self.conv1 = GATConv(num_node_features, 16, edge_dim=3)
+        self.conv1 = GATConv(num_node_features, 16, edge_dim=num_edge_features)
         self.edge1 = torch.nn.Sequential(
-            torch.nn.Linear(35, 16),
+            torch.nn.Linear((16 * 2) + num_edge_features, 16),
             torch.nn.ReLU(),
             # torch.nn.Dropout(),
             torch.nn.Linear(16, 16),
@@ -20,7 +20,7 @@ class SimpleModel(torch.nn.Module):
             torch.nn.Linear(8, num_edge_classes),
             # torch.nn.ReLU(),
         )
-        self.conv2 = GATConv(16, num_node_classes, edge_dim=4)
+        self.conv2 = GATConv(16, num_node_classes, edge_dim=num_edge_classes)
 
     def forward(self, data):
         x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr

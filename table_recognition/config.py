@@ -71,6 +71,8 @@ class Config(object):
         self.model_path = None
         self.visualize_path = None
         self.preload_model = None
+        self.train_percentage = None
+        self.test_percentage = None
 
         # Infer section
         self.input_data_dir = None
@@ -88,7 +90,9 @@ class Config(object):
                f"[train].test_gt_data_dir={self.test_gt_data_dir} " \
                f"[train].train_input_data_dir={self.train_input_data_dir} " \
                f"[train].train_gt_data_dir={self.train_gt_data_dir} " \
-               f"[train].model_path={self.model_path}" \
+               f"[train].model_path={self.model_path} " \
+               f"[train].train_percentage={self.train_percentage} " \
+               f"[train].test_percentage={self.test_percentage} " \
                f"[train/infer].input_data_dir={self.input_data_dir} " \
                f"[dataset-preparation].ocr_output_path={self.ocr_output_path} " \
                f"[dataset-preparation].input_path={self.dataset_img_path} " \
@@ -182,6 +186,8 @@ class Config(object):
         self.visualize_path = train_config["visualize_path"]
         self.data_dir = Config.validate_file(train_config["data_dir"], mandatory=False)
         self.preload_model = Config.validate_file(train_config["preload_model"], mandatory=False)
+        self.train_percentage = Config.validate_float(train_config["train_percentage"], mandatory=False)
+        self.test_percentage = Config.validate_float(train_config["test_percentage"], mandatory=False)
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):

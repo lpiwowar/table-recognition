@@ -121,9 +121,9 @@ class Graph(object):
                         cv2.LINE_AA)
 
         # Visualize GT cells
-        # for node in self.ground_truth_nodes:
-        #     node_coords = node.bbox["corners"]
-        #     cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=8)
+        for node in self.ground_truth_nodes:
+             node_coords = node.bbox["corners"]
+             cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=8)
 
         img_name = "graph_" + self.img_path.split("/")[-1]
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
