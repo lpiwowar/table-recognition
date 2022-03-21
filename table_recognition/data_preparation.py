@@ -27,7 +27,9 @@ def data_preparation(conf):
         dataset_gt_path = os.path.join(conf.dataset_gt_path, ocr_file_prefix + '.xml')
         dataset_img_path = os.path.join(conf.dataset_img_path, ocr_file_prefix + '.jpg')
 
-        graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path)
+        graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path,
+                      input_graph_colorer=conf.input_graph_colorer)
+
         graph.initialize()
         graph.color_output()
         graph.color_input()

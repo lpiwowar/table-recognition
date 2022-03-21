@@ -6,6 +6,7 @@ import torch
 from torch_geometric.data import Data
 
 from table_recognition.graph.colorers import BasicGraphColorer
+from table_recognition.graph.colorers import GeometryGraphColorer
 from table_recognition.graph.colorers import OutputGraphColorer
 from table_recognition.graph.utils import coords_string_to_tuple_list
 from table_recognition.graph.edge_discovery import KNearestNeighbors
@@ -35,7 +36,8 @@ class Graph(object):
         self.output_graph_colorer = OutputGraphColorer(self)
 
         self.input_graph_colorers = {
-            "basic-graph-colorer": BasicGraphColorer(self)
+            "basic-graph-colorer": BasicGraphColorer(self),
+            "geometry-graph-colorer": GeometryGraphColorer(self)
         }
 
     def initialize(self):
@@ -102,6 +104,11 @@ class Graph(object):
             node2_center = edge.node2.bbox["center"]
             cv2.line(img, node1_center, node2_center, color=colors["edge"][edge.type], thickness=3)
 
+            edge_center = [(node1_center[0] + node2_center[0]) // 2, (node1_center[1] + node2_center[1]) // 2]
+            cv2.putText(img, f"{edge.input_feature_vector[-1]:.2f}, {edge.input_feature_vector[-2]:.2f}", edge_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1,
+                        cv2.LINE_AA)
+
+
         # Visualize nodes
         for node in self.nodes:
             # Visualize text line region
@@ -110,13 +117,13 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
-            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1,
+            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
                         cv2.LINE_AA)
 
         # Visualize GT cells
-        for node in self.ground_truth_nodes:
-            node_coords = node.bbox["corners"]
-            cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=8)
+        # for node in self.ground_truth_nodes:
+        #     node_coords = node.bbox["corners"]
+        #     cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=8)
 
         img_name = "graph_" + self.img_path.split("/")[-1]
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
@@ -218,8 +225,6 @@ class Node(object):
         }
 
         return bbox_coord_types
-
-
 
 
 

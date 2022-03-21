@@ -1,2 +1,3 @@
 from table_recognition.graph.colorers.output import OutputGraphColorer
-from table_recognition.graph.colorers.input import InputGraphColorerNodePosition
+from table_recognition.graph.colorers.basic_graph_colorer import BasicGraphColorer
+from table_recognition.graph.colorers.geometry_graph_colorer import GeometryGraphColorer

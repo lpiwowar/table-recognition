@@ -56,6 +56,7 @@ class Config(object):
         self.visualize_graph = None
         self.visualize_dir = None
         self.prepared_data_dir = None
+        self.input_graph_colorer = None
 
         # Train parameters
         self.wandb_mode = None
@@ -123,7 +124,6 @@ class Config(object):
         if "logging" in config_parser:
             self.parse_logging_section(config_parser)
 
-
     def parse_logging_section(self, config_parser):
         log_level = config_parser["logging"]["log_level"]
         self.tqdm_disable = Config.validate_bool(config_parser["logging"]["tqdm_disable"])
@@ -150,6 +150,7 @@ class Config(object):
         self.dataset_gt_path = Config.validate_file(dataset_prep_config["dataset_gt_path"], mandatory=False)
         self.visualize_dir = Config.validate_file(dataset_prep_config["visualize_dir"], mandatory=False)
         self.prepared_data_dir = Config.validate_file(dataset_prep_config["prepared_data_dir"], mandatory=False)
+        self.input_graph_colorer = dataset_prep_config["input_graph_colorer"]
 
     def parse_infer_section(self, config_parser):
         """
