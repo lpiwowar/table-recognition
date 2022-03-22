@@ -1,1 +1,3 @@
 from table_recognition.models.simple_model import SimpleModel
+from table_recognition.models.node_edge_mlp_ending import SimpleModelWithNNEnding
+from table_recognition.models.node_edge_mlp_ending import NodeEdgeMLPEnding

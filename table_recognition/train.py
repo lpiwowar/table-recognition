@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from table_recognition.dataset import TableDataset
 from table_recognition.models import SimpleModel
+from table_recognition.models import NodeEdgeMLPEnding
 from table_recognition.graph.utils import visualize_output_image
 from table_recognition.graph.utils import visualize_input_image
 
@@ -30,7 +31,7 @@ class Trainer(object):
 
     def init_resources(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = SimpleModel().to(self.device)
+        self.model = NodeEdgeMLPEnding().to(self.device)
         self.conf.logger.info(f"Using {self.device} device for training.")
         self.conf.logger.info(f"Training {type(self.model).__name__} model.")
 

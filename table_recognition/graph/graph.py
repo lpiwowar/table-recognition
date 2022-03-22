@@ -104,9 +104,9 @@ class Graph(object):
             node2_center = edge.node2.bbox["center"]
             cv2.line(img, node1_center, node2_center, color=colors["edge"][edge.type], thickness=3)
 
-            edge_center = [(node1_center[0] + node2_center[0]) // 2, (node1_center[1] + node2_center[1]) // 2]
-            cv2.putText(img, f"{edge.input_feature_vector[-1]:.2f}, {edge.input_feature_vector[-2]:.2f}", edge_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1,
-                        cv2.LINE_AA)
+            # edge_center = [(node1_center[0] + node2_center[0]) // 2, (node1_center[1] + node2_center[1]) // 2]
+            # cv2.putText(img, f"{edge.input_feature_vector[-1]:.2f}, {edge.input_feature_vector[-2]:.2f}", edge_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1,
+            #            cv2.LINE_AA)
 
 
         # Visualize nodes
@@ -157,10 +157,19 @@ class Graph(object):
         visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())])
 
         # Collect bounding boxes of nodes in image
-        node_bounding_box={}
+        node_bounding_box = {}
         for node in self.nodes:
             node_bounding_box[node.id] = node.bbox["corners"]
         node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
+
+        # Cut out regions from image
+        img = cv2.imread(self.img_path)
+        node_image_regions = {}
+        for node in self.nodes:
+            (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
+            img_region = img[min_y:max_y, min_x:max_x, :]
+            node_image_regions[node.id] = torch.tensor(img_region)
+        node_image_regions = [node_image_regions[key] for key in sorted(node_image_regions.keys())]
 
         data = Data(
                     # --- Input attributes --- #
@@ -179,7 +188,8 @@ class Graph(object):
                     # --- Auxiliary attributes --- #
                     node_image_position=visualize_position,   # Position of nodes in image
                     node_bounding_box=node_bounding_box,      # Bounding box of node
-                    img_path=self.img_path                    # Path to image
+                    img_path=self.img_path,                   # Path to image
+                    node_image_regions=node_image_regions     # Cutted out regions from images
                     )
 
         filename = os.path.basename(self.img_path).split(".")[0]
