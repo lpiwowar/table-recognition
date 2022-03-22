@@ -96,15 +96,17 @@ class NodeSubModel(torch.nn.Module):
         row, col = edge_index
         out = torch.cat([src_node_features[col], edge_attr], dim=1)
         out = self.node_mlp_1(out)
-        #out = scatter_mean(out, row, dim=0, dim_size=src_node_features.size(0))
-        #out = torch.cat([src_node_features, out], dim=1)
-        #out = self.node_mlp_2(out)
+        out = scatter_mean(out, row, dim=0, dim_size=src_node_features.size(0))
+        out = torch.cat([src_node_features, out], dim=1)
+        out = self.node_mlp_2(out)
         if self.residual:
             out = out + src_node_features
 
         return out
 
 
+# Source: https://github.com/pyg-team/pytorch_geometric/issues/813
+# Project: https://github.com/fgerzer/gnn_acopf/
 class NodeEdgeMLPEnding(torch.nn.Module):
     def __init__(self):
         super().__init__()
