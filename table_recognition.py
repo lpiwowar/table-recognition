@@ -64,10 +64,44 @@ if __name__ == "__main__":
     import cv2
     import torch
     import numpy as np
+    from table_recognition.graph.utils import roi_align_single_image
+    from table_recognition.graph.utils import pytorch_img_to_numpy_img
 
     dataset = TableDataset(config)
     data = dataset[0]
     img_name = data.img_path.split("/")[-1]
+    for img in data.edge_image_regions:
+        cv2.imshow("test", img.numpy())
+        cv2.waitKey(0)
+
+        aligned_image = roi_align_single_image(img, (10, 10))
+
+        cv2.imshow("test", pytorch_img_to_numpy_img(aligned_image))
+        cv2.waitKey(0)
+
+    """
+    img1 = data.edge_image_regions[0]
+    img2 = data.edge_image_regions[1]
+    img1_h, img1_w, img1_c = img1.shape
+    img2_h, img2_w, img2_c = img2.shape
+    
+    coord1 = torch.cat((torch.Tensor([0]), torch.Tensor([0, 0, img1_h, img1_w]))).view(1, 5)
+    coord2 = torch.cat((torch.Tensor([0]), torch.Tensor([0, 0, img2_h, img2_w]))).view(1, 5)
+    coords = torch.cat([coord1, coord2], 0)
+
+    img1 = torch.tensor(img1.numpy().transpose(2, 1, 0))
+    img2 = torch.tensor(img2.numpy().transpose(2, 1, 0))
+    # images = torch.cat((img1, img2), 0).type('torch.FloatTensor')
+    images = torch.stack([img1, img2]).type('torch.FloatTensor')
+
+    roi_align = RoIAlign((10, 10), 1.0, -1)
+    new_images = roi_align(images, coords)
+    
+    new_img1 = new_images.numpy().transpose(3, 2, 1, 0)[:, :, :, 0]
+    new_img2 = new_images.numpy().transpose(3, 2, 1, 0)[:, :, :, 1]
+    """
+
+
     for id, img in enumerate(data.edge_image_regions):
         h, w, c = img.shape
         roi_align = RoIAlign((10, 10), 1.0, -1)
@@ -86,25 +120,17 @@ if __name__ == "__main__":
         #img = torch.tensor([img])
         # img = [img]
         #img = torch.tensor(img)
-
+        
         cv2.imshow("test", img.numpy())
         cv2.waitKey(0)
 
         img = img.numpy().transpose(2,1,0)
         img = np.array([img])
         img = torch.from_numpy(img)
-        print(img.shape)
-        # exit(0)
 
         new_img = roi_align(img.type('torch.FloatTensor'), coords)
-        print(new_img.shape)
-        # new_img = roi_align(img, {[(0, 0, w-1, h-1)]}, 10)
-        print(type(new_img.numpy().astype(int).dtype))
 
         new_img = new_img.numpy().transpose(3,2,1,0)[:,:,:,0]
-        print(new_img.shape)
-        # exit(0)
-        print(new_img.astype(int).dtype)
+        
         cv2.imshow("test", new_img.astype(np.uint8))
         cv2.waitKey(0)
-        #cv2.imwrite("./cuts/" + str(id) + img_name, img.numpy())
