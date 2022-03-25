@@ -142,8 +142,8 @@ class GeometryGraphColorer(object):
 
                 bbox_in_between_list = list(bbox_in_between_set)
                 bbox_in_between_list.sort()
-                if edge.node1.id == 75 and edge.node2.id == 97:
-                    print(bbox_in_between_list)
+                # if edge.node1.id == 75 and edge.node2.id == 97:
+                #    print(bbox_in_between_list)
 
                 if len(bbox_in_between_list) <= 0:
                     x_overlap = 0
@@ -249,8 +249,8 @@ class GeometryGraphColorer(object):
         polygon1 = node1.bbox["polygon"]
         polygon2 = node2.bbox["polygon"]
 
-        print(f"Polygon1: {polygon1}")
-        print(f"Polygon2: {polygon2}")
+        # print(f"Polygon1: {polygon1}")
+        # print(f"Polygon2: {polygon2}")
         # Create polygon that represents the convex hull of polygon1 and polygon2
         hull_points = polygon1 + polygon2
         # points = np.array(polygon1 + polygon2)
@@ -279,16 +279,16 @@ class GeometryGraphColorer(object):
         #print(nodes_test)
         #exit(0)
         # Find nodes that intersect created hull
-        print(f"hull_points_bbox: {hull_points_bbox}")
+        # print(f"hull_points_bbox: {hull_points_bbox}")
         nodes_intersections_idx = list(self.rtree_index.intersection(hull_points_bbox))
         if node1.id in nodes_intersections_idx:
             nodes_intersections_idx.remove(node1.id)
         if node2.id in nodes_intersections_idx:
             nodes_intersections_idx.remove(node2.id)
 
-        print(f"idx: {nodes_intersections_idx}")
+        # print(f"idx: {nodes_intersections_idx}")
         nodes = get_multiple_values_from_dict(self.rtree_index_2_node, nodes_intersections_idx)
-        print(f"Intersecting nodes: {nodes}")
+        # print(f"Intersecting nodes: {nodes}")
 
         for node in nodes:
             # Split the hull polygon using the node polygon
@@ -298,11 +298,11 @@ class GeometryGraphColorer(object):
             # Check how many new polygons were created by splitting the hull_polygon
             if len(hull_polygon_splitted) >= 2:
                 # If there are more than 2 new polygons => the nodes do not see each other
-                print(f"ukamanga: {node.id}")
-                print(node_linestring)
+                # print(f"ukamanga: {node.id}")
+                # print(node_linestring)
                 return False
             elif len(hull_polygon_splitted) <= 1:
-                print(f"blukamanga: {node.id}")
+                # print(f"blukamanga: {node.id}")
                 continue
             else:
                 # Else find the cut hull polygon in the output of split() and continue the process
