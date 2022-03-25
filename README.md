@@ -5,9 +5,18 @@ model.
 
 Requirements
 ------------
-- The tested was tested using ```python v3.9.10```
+- The tested was tested using ```python v3.7.12```
 - To use the code please install the requirements first
   ```bash
-    virtualenv .venv
-    pip install -r requirements.txt
+    # Installation of CPU packages
+    virtualenv .venv && source .venv/bin/activate
+    pip install -r requirements-cpu.txt
+  ```
+- To use or train the model using GPU it is necessary to install packages
+  listed in requirements-gpu.txt (to use this packages you have to have 
+  ```cuda 11.2``` installed on your system)
+  ```bash
+    # Installation of GPU packages
+    virtualenv .venv && source .venv/bin/activate
+    pip install -r requirements-gpu.txt
   ```
