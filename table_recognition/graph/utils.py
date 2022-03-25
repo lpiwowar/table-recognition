@@ -4,9 +4,11 @@ import networkx as nx
 import numpy as np
 import torch
 import os
+from typing import Tuple
 
 from torch_geometric.utils import to_networkx
 from torch_geometric.data import Data
+from torchvision.ops import RoIAlign
 from operator import itemgetter
 
 
@@ -107,9 +109,9 @@ def visualize_model_output(data, out_nodes, out_edges):
     us = data.edge_index[0]
     vs = data.edge_index[1]
     color_edges = {
-        0: "red", # cell
-        1: "blue", # horizontal
-        2: "orange", # vertical
+        0: "red",  # cell
+        1: "blue",  # horizontal
+        2: "orange",  # vertical
         3: "purple"
     }
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.numpy())]
@@ -161,6 +163,7 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     # cv2.imshow("visualize output", img)
     # cv2.waitKey(0)
 
+
 def visualize_input_image(data, visualize_path):
     us = data.edge_index[0]
     vs = data.edge_index[1]
@@ -171,7 +174,8 @@ def visualize_input_image(data, visualize_path):
         3: "purple"
     }
     edge_output_attr = None
-    edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, torch.argmax(data.edge_output_attr, dim=1).numpy())]
+    edges = [(int(u), int(v), color_edges[t]) for u, v, t in
+             zip(us, vs, torch.argmax(data.edge_output_attr, dim=1).numpy())]
 
     img = cv2.imread(data.img_path[0])
     for node_idx, node_attributes in enumerate(data.node_image_position):
@@ -191,3 +195,28 @@ def visualize_input_image(data, visualize_path):
 
     img_path = os.path.join(visualize_path, data.img_path[0].split("/")[-1])
     cv2.imwrite(img_path, img)
+
+
+def numpy_img_to_pytorch_img(img: np.array) -> torch.Tensor:
+    return torch.tensor([img.numpy().transpose(2, 1, 0)]).type('torch.FloatTensor')
+
+
+def pytorch_img_to_numpy_img(img: torch.Tensor) -> np.array:
+    return img.numpy().transpose(2, 1, 0).astype(np.uint8)
+
+
+def roi_align_single_image(img: np.array, dim: Tuple[int, int]) -> torch.Tensor:
+    h, w, c = img.shape
+    roi_align = RoIAlign(dim, 1.0, -1)
+    coords = torch.cat((torch.Tensor([0]), torch.Tensor([0, 0, h, w]))).view(1, 5)
+
+    img = img.numpy().transpose(2, 1, 0)
+    img = np.array([img])
+    img = torch.from_numpy(img)
+
+    new_img = roi_align(img.type('torch.FloatTensor'), coords)
+
+    #new_img = new_img.numpy().transpose(3, 2, 1, 0)[:, :, :, 0]
+
+    return new_img[0]
+

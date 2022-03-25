@@ -1,108 +1,7 @@
-import numpy as np
 import torch
-from torch_geometric.nn import GCNConv, GATConv
 import torch.nn.functional as F
 from torch_scatter import scatter_mean
 from torch_geometric.nn.meta import MetaLayer
-
-
-class SimpleModelWithNNEnding(torch.nn.Module):
-    def __init__(self, num_node_features=4, num_edge_features=6, num_edge_classes=4, num_node_classes=2):
-        super().__init__()
-        self.conv1 = GATConv(num_node_features, 16, edge_dim=num_edge_features)
-        self.edge1 = torch.nn.Sequential(
-            torch.nn.Linear((16 * 2) + num_edge_features, 32),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(),
-            torch.nn.Linear(32, 64),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 32),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(),
-            torch.nn.Linear(32, 16),
-            # torch.nn.ReLU(),
-        )
-        self.conv2 = GATConv(16, 16, edge_dim=16)
-
-        self.nodeLinear = torch.nn.Sequential(
-            torch.nn.Linear(16, 16),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(),
-            torch.nn.Linear(16, num_node_classes),
-            torch.nn.ReLU(),
-        )
-
-        self.edgeLinear = torch.nn.Sequential(
-            torch.nn.Linear(16, 16),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(),
-            torch.nn.Linear(16, num_edge_classes),
-            torch.nn.ReLU(),
-        )
-
-    def forward(self, data):
-        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
-
-        x = self.conv1(x, edge_index, edge_attr)
-        edge_attr = self.edge1(torch.cat((x[edge_index[0]], edge_attr, x[edge_index[1]]), dim=1).float())
-        x = self.conv2(x, edge_index, edge_attr)
-
-        x = self.nodeLinear(x)
-        edge_attr = self.edgeLinear(edge_attr)
-
-        # Nodes, Edges
-        # Odstranit softmaxy - nejprve rozsir informaci -> pak transformuj
-        # Positional embbeding
-        # Hrany: Smer, nejblizsi bod (ne stredy) -- Nenacpat jako positional ambbeding?
-        return F.log_softmax(x, dim=1), F.log_softmax(edge_attr, dim=1)
-
-
-class EdgeSubModel(torch.nn.Module):
-    def __init__(self, in_node_features, in_edge_features, hidden_features, out_edge_features, residual):
-        super().__init__()
-        self.residual = residual
-        self.edge_mlp = torch.nn.Sequential(
-            torch.nn.Linear(2 * in_node_features + in_edge_features, hidden_features),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_features, out_edge_features)
-        )
-
-    def forward(self, src_node_features, dest_node_features, edge_attr, u, batch):
-        out = torch.cat([src_node_features, dest_node_features, edge_attr], 1)
-        out = self.edge_mlp(out)
-        if self.residual:
-            out = out + edge_attr
-
-        return out
-
-
-class NodeSubModel(torch.nn.Module):
-    def __init__(self, in_node_features, in_edge_features, hidden_features, out_node_features, residual):
-        super().__init__()
-        self.residual = residual
-        self.node_mlp_1 = torch.nn.Sequential(
-            torch.nn.Linear(in_node_features + in_edge_features, hidden_features),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_features, out_node_features)
-        )
-
-        self.node_mlp_2 = torch.nn.Sequential(
-            torch.nn.Linear(in_node_features + out_node_features, hidden_features),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_features, out_node_features)
-        )
-
-    def forward(self, src_node_features, edge_index, edge_attr, u, batch):
-        row, col = edge_index
-        out = torch.cat([src_node_features[col], edge_attr], dim=1)
-        out = self.node_mlp_1(out)
-        out = scatter_mean(out, row, dim=0, dim_size=src_node_features.size(0))
-        out = torch.cat([src_node_features, out], dim=1)
-        out = self.node_mlp_2(out)
-        if self.residual:
-            out = out + src_node_features
-
-        return out
 
 
 # Source: https://github.com/pyg-team/pytorch_geometric/issues/813
@@ -166,6 +65,53 @@ class NodeEdgeMLPEnding(torch.nn.Module):
 
         return F.log_softmax(x, dim=1), F.log_softmax(edge_attr, dim=1)
 
+
+class EdgeSubModel(torch.nn.Module):
+    def __init__(self, in_node_features, in_edge_features, hidden_features, out_edge_features, residual):
+        super().__init__()
+        self.residual = residual
+        self.edge_mlp = torch.nn.Sequential(
+            torch.nn.Linear(2 * in_node_features + in_edge_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_edge_features)
+        )
+
+    def forward(self, src_node_features, dest_node_features, edge_attr, u, batch):
+        out = torch.cat([src_node_features, dest_node_features, edge_attr], 1)
+        out = self.edge_mlp(out)
+        if self.residual:
+            out = out + edge_attr
+
+        return out
+
+
+class NodeSubModel(torch.nn.Module):
+    def __init__(self, in_node_features, in_edge_features, hidden_features, out_node_features, residual):
+        super().__init__()
+        self.residual = residual
+        self.node_mlp_1 = torch.nn.Sequential(
+            torch.nn.Linear(in_node_features + in_edge_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_node_features)
+        )
+
+        self.node_mlp_2 = torch.nn.Sequential(
+            torch.nn.Linear(in_node_features + out_node_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_node_features)
+        )
+
+    def forward(self, src_node_features, edge_index, edge_attr, u, batch):
+        row, col = edge_index
+        out = torch.cat([src_node_features[col], edge_attr], dim=1)
+        out = self.node_mlp_1(out)
+        out = scatter_mean(out, row, dim=0, dim_size=src_node_features.size(0))
+        out = torch.cat([src_node_features, out], dim=1)
+        out = self.node_mlp_2(out)
+        if self.residual:
+            out = out + src_node_features
+
+        return out
 
 """
 class EdgeModel(torch.nn.Module):
@@ -260,5 +206,56 @@ class SimpleModelWithNNEnding2(torch.nn.Module):
         x = self.nodeLinear(x)
         edge_attr = self.edgeLinear(edge_attr)
 
+        return F.log_softmax(x, dim=1), F.log_softmax(edge_attr, dim=1)
+"""
+"""
+class SimpleModelWithNNEnding(torch.nn.Module):
+    def __init__(self, num_node_features=4, num_edge_features=6, num_edge_classes=4, num_node_classes=2):
+        super().__init__()
+        self.conv1 = GATConv(num_node_features, 16, edge_dim=num_edge_features)
+        self.edge1 = torch.nn.Sequential(
+            torch.nn.Linear((16 * 2) + num_edge_features, 32),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(),
+            torch.nn.Linear(32, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 32),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(),
+            torch.nn.Linear(32, 16),
+            # torch.nn.ReLU(),
+        )
+        self.conv2 = GATConv(16, 16, edge_dim=16)
+
+        self.nodeLinear = torch.nn.Sequential(
+            torch.nn.Linear(16, 16),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(),
+            torch.nn.Linear(16, num_node_classes),
+            torch.nn.ReLU(),
+        )
+
+        self.edgeLinear = torch.nn.Sequential(
+            torch.nn.Linear(16, 16),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(),
+            torch.nn.Linear(16, num_edge_classes),
+            torch.nn.ReLU(),
+        )
+
+    def forward(self, data):
+        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+
+        x = self.conv1(x, edge_index, edge_attr)
+        edge_attr = self.edge1(torch.cat((x[edge_index[0]], edge_attr, x[edge_index[1]]), dim=1).float())
+        x = self.conv2(x, edge_index, edge_attr)
+
+        x = self.nodeLinear(x)
+        edge_attr = self.edgeLinear(edge_attr)
+
+        # Nodes, Edges
+        # Odstranit softmaxy - nejprve rozsir informaci -> pak transformuj
+        # Positional embbeding
+        # Hrany: Smer, nejblizsi bod (ne stredy) -- Nenacpat jako positional ambbeding?
         return F.log_softmax(x, dim=1), F.log_softmax(edge_attr, dim=1)
 """

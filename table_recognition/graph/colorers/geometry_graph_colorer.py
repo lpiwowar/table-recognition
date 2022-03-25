@@ -41,6 +41,7 @@ class GeometryGraphColorer(object):
             node.input_feature_vector = position + bbox_dimensions
 
     def color_edges(self):
+        # TODO - Cleanup edge coloring for GeometryGraphColorer
         for edge in self.graph.edges:
             # Center of node1
             node1_x, node1_y = edge.node1.bbox["center"]

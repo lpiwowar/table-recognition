@@ -10,6 +10,7 @@ from table_recognition.graph.colorers import GeometryGraphColorer
 from table_recognition.graph.colorers import OutputGraphColorer
 from table_recognition.graph.utils import coords_string_to_tuple_list
 from table_recognition.graph.edge_discovery import KNearestNeighbors
+from table_recognition.graph.utils import roi_align_single_image
 
 
 class Graph(object):
@@ -162,14 +163,48 @@ class Graph(object):
             node_bounding_box[node.id] = node.bbox["corners"]
         node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
 
-        # Cut out regions from image
-        img = cv2.imread(self.img_path)
-        node_image_regions = {}
-        for node in self.nodes:
-            (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
-            img_region = img[min_y:max_y, min_x:max_x, :]
-            node_image_regions[node.id] = torch.tensor(img_region)
-        node_image_regions = [node_image_regions[key] for key in sorted(node_image_regions.keys())]
+        if self.config.visual_features:
+            # Cut out regions from image
+            img = cv2.imread(self.img_path)
+            img_h, img_w, img_c = img.shape
+            node_cut_padding = 20
+            node_image_regions = {}
+            for node in self.nodes:
+                (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
+
+                min_x = max(min_x - node_cut_padding, 0)
+                max_x = min(max_x + node_cut_padding, img_w)
+                min_y = max(min_y - node_cut_padding, 0)
+                max_y = min(max_y + node_cut_padding, img_h)
+
+                img_region = img[min_y:max_y, min_x:max_x, :]
+                node_image_regions[node.id] = torch.tensor(img_region)
+            node_image_regions = [roi_align_single_image(node_image_regions[key], (10, 10))
+                                  for key in sorted(node_image_regions.keys())]
+            print(self.img_path)
+            node_image_regions = torch.stack(node_image_regions)
+
+            edge_cut_padding = 20
+            edge_image_regions = []
+            for edge in self.edges:
+                (node1_min_x, node1_min_y, node1_max_x, node1_max_y) = edge.node1.bbox["rtree"]
+                (node2_min_x, node2_min_y, node2_max_x, node2_max_y) = edge.node2.bbox["rtree"]
+
+                # Find bounding box of the two bounding boxes
+                min_x = min(node1_min_x, node2_min_x)
+                max_x = max(node1_max_x, node2_max_x)
+                min_y = min(node1_min_y, node2_min_y)
+                max_y = max(node1_max_y, node2_max_y)
+
+                # Add padding
+                min_x = max(min_x - edge_cut_padding, 0)
+                max_x = min(max_x + edge_cut_padding, img_w)
+                min_y = max(min_y - edge_cut_padding, 0)
+                max_y = min(max_y + edge_cut_padding, img_h)
+
+                img_region = img[min_y:max_y, min_x:max_x, :]
+                edge_image_regions += [roi_align_single_image(torch.tensor(img_region), (16, 16))]
+            edge_image_regions = torch.stack(edge_image_regions)
 
         data = Data(
                     # --- Input attributes --- #
@@ -189,7 +224,8 @@ class Graph(object):
                     node_image_position=visualize_position,   # Position of nodes in image
                     node_bounding_box=node_bounding_box,      # Bounding box of node
                     img_path=self.img_path,                   # Path to image
-                    node_image_regions=node_image_regions     # Cutted out regions from images
+                    node_image_regions=node_image_regions,    # Cutted out regions from images (nodes)
+                    edge_image_regions=edge_image_regions     # Cutted out regions from images (edges)
                     )
 
         filename = os.path.basename(self.img_path).split(".")[0]

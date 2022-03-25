@@ -57,6 +57,7 @@ class Config(object):
         self.visualize_dir = None
         self.prepared_data_dir = None
         self.input_graph_colorer = None
+        self.visual_features = None
 
         # Train parameters
         self.wandb_mode = None
@@ -155,6 +156,7 @@ class Config(object):
         self.visualize_dir = Config.validate_file(dataset_prep_config["visualize_dir"], mandatory=False)
         self.prepared_data_dir = Config.validate_file(dataset_prep_config["prepared_data_dir"], mandatory=False)
         self.input_graph_colorer = dataset_prep_config["input_graph_colorer"]
+        self.visual_features = Config.validate_bool(dataset_prep_config["visual_features"])
 
     def parse_infer_section(self, config_parser):
         """
@@ -188,6 +190,7 @@ class Config(object):
         self.preload_model = Config.validate_file(train_config["preload_model"], mandatory=False)
         self.train_percentage = Config.validate_float(train_config["train_percentage"], mandatory=False)
         self.test_percentage = Config.validate_float(train_config["test_percentage"], mandatory=False)
+        self.model_name = train_config["model_name"]
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):

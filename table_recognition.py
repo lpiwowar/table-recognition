@@ -39,26 +39,29 @@ if __name__ == "__main__":
 
     config = Config(args.config_file)
 
-    #if args.data_preparation:
-    #    data_preparation(config)
-    #elif args.train:
-    #    Trainer(config)
+    if args.data_preparation:
+        data_preparation(config)
+    elif args.train:
+        Trainer(config)
 
-    # import wandb
-    # import datetime
-    # import os
+    """
+    import wandb
+    import datetime
+    import os
 
-    # run = wandb.init(project="table-recognition",
-    #                 name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
-    #                 entity="lpiwowar")
+    run = wandb.init(project="table-recognition",
+                     name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
+                     entity="lpiwowar")
 
-    # artifact = wandb.Artifact('ocr-output', type='dataset')
-    # dir_path = "/home/lpiwowar-personal/PycharmProjects/master-thesis/data_preparation/ocr_output"
-    # for file in os.listdir(dir_path):
-    #     artifact.add_file(os.path.join(dir_path, file))
+    artifact = wandb.Artifact('ocr-output', type='dataset')
+    dir_path = "/home/lpiwowar-personal/PycharmProjects/master-thesis/data_preparation/ocr_output"
+    for file in os.listdir(dir_path):
+        artifact.add_file(os.path.join(dir_path, file))
 
-    # run.log_artifact(artifact)
+    run.log_artifact(artifact)
+    """
 
+    """
     from table_recognition.dataset import TableDataset
     from torchvision.ops import RoIAlign
     import cv2
@@ -78,6 +81,7 @@ if __name__ == "__main__":
 
         cv2.imshow("test", pytorch_img_to_numpy_img(aligned_image))
         cv2.waitKey(0)
+    """
 
     """
     img1 = data.edge_image_regions[0]
@@ -101,7 +105,7 @@ if __name__ == "__main__":
     new_img2 = new_images.numpy().transpose(3, 2, 1, 0)[:, :, :, 1]
     """
 
-
+    """
     for id, img in enumerate(data.edge_image_regions):
         h, w, c = img.shape
         roi_align = RoIAlign((10, 10), 1.0, -1)
@@ -134,3 +138,4 @@ if __name__ == "__main__":
         
         cv2.imshow("test", new_img.astype(np.uint8))
         cv2.waitKey(0)
+    """

@@ -1,5 +1,4 @@
 import datetime
-import logging
 
 import torch
 import wandb
@@ -8,10 +7,10 @@ from torch_geometric.utils.metric import accuracy
 from tqdm import tqdm
 
 from table_recognition.dataset import TableDataset
+from table_recognition.graph.utils import visualize_output_image
 from table_recognition.models import SimpleModel
 from table_recognition.models import NodeEdgeMLPEnding
-from table_recognition.graph.utils import visualize_output_image
-from table_recognition.graph.utils import visualize_input_image
+from table_recognition.models import VisualNodeEdgeMLPEnding
 
 
 class Trainer(object):
@@ -19,6 +18,11 @@ class Trainer(object):
         self.conf = conf
         self.device = None
         self.model = None
+        self.available_models = {
+            SimpleModel.__name__: SimpleModel,
+            NodeEdgeMLPEnding.__name__: NodeEdgeMLPEnding,
+            VisualNodeEdgeMLPEnding.__name__: VisualNodeEdgeMLPEnding
+        }
 
         self.train_loader = None
         self.test_loader = None
@@ -31,7 +35,7 @@ class Trainer(object):
 
     def init_resources(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = NodeEdgeMLPEnding().to(self.device)
+        self.model = self.available_models[self.conf.model_name]().to(self.device)
         self.conf.logger.info(f"Using {self.device} device for training.")
         self.conf.logger.info(f"Training {type(self.model).__name__} model.")
 
@@ -77,9 +81,9 @@ class Trainer(object):
         epoch_accuracy_edges = []
         epoch_loss = []
 
-        for epoch in tqdm(range(self.conf.epochs), disable=self.conf.tqdm_disable):
+        for epoch in range(self.conf.epochs):
             self.conf.logger.info(f"Running epoch: {epoch}/{self.conf.epochs}")
-            for data in self.train_loader:
+            for data in tqdm(self.train_loader, disable=self.conf.tqdm_disable):
                 loss, out_nodes, out_edges = self.train_batch(data)
                 epoch_loss += [float(loss)]
 
@@ -124,7 +128,7 @@ class Trainer(object):
             epoch_loss = []
 
     def train_batch(self, data, evaluation=False):
-        # print(data.img_path)
+        data.to(self.device)
         out_nodes, out_edges = self.model(data)
         y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
 
@@ -154,13 +158,10 @@ class Trainer(object):
             epoch_loss = []
             for data in tqdm(self.test_loader, disable=self.conf.tqdm_disable):
                 counter += 1
-                # conf.logger.info(f"Tested {counter}/{len(test_loader)} images ...")
+                # self.conf.logger.info(f"Tested {counter}/{len(self.test_loader)} images ...")
 
-                # out_nodes, out_edges = model(data)
                 loss, out_nodes, out_edges = self.train_batch(data, evaluation=True)
                 epoch_loss += [float(loss)]
-
-                # out_nodes, out_edges = torch.argmax(torch.exp(out_nodes), dim=1), torch.argmax(torch.exp(out_edges), dim=1)
 
                 exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
@@ -183,6 +184,7 @@ class Trainer(object):
                                   f"[accuracy edges: {accuracy_edges}] "
                                   f"[loss: {epoch_loss}]")
 
+            self.model.train()
             return {
                 "accuracy_nodes": accuracy_nodes,
                 "accuracy_edges": accuracy_edges,
