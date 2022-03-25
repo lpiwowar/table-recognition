@@ -181,7 +181,6 @@ class Graph(object):
                 node_image_regions[node.id] = torch.tensor(img_region)
             node_image_regions = [roi_align_single_image(node_image_regions[key], (10, 10))
                                   for key in sorted(node_image_regions.keys())]
-            print(self.img_path)
             node_image_regions = torch.stack(node_image_regions)
 
             edge_cut_padding = 20
