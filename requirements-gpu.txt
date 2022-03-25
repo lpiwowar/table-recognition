@@ -1,0 +1,19 @@
+--extra-index-url https://download.pytorch.org/whl/cu112
+--find-links https://data.pyg.org/whl/torch-1.11.0+cu112.html
+
+torch
+torchvision
+torchaudio
+torch-scatter
+torch-sparse
+torch-cluster
+torch-spline-conv
+torch-geometric
+Rtree==0.9.7
+Shapely==1.8.1.post1
+tqdm==4.63.0
+wandb==0.12.11
+scipy==1.7.3
+matplotlib==3.5.1
+networkx==2.6.3
+opencv-python==4.5.5.64
