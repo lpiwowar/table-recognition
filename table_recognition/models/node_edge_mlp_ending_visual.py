@@ -3,8 +3,8 @@ import torch.nn.functional as F
 from torch_scatter import scatter_mean
 from torch_geometric.nn.meta import MetaLayer
 
-from table_recognition.models.node_edge_mlp_ending import NodeSubModel
-from table_recognition.models.node_edge_mlp_ending import EdgeSubModel
+# from table_recognition.models.node_edge_mlp_ending import NodeSubModel
+# from table_recognition.models.node_edge_mlp_ending import EdgeSubModel
 
 
 # Source: https://github.com/pyg-team/pytorch_geometric/issues/813
@@ -14,19 +14,19 @@ class VisualNodeEdgeMLPEnding(torch.nn.Module):
         super().__init__()
         self.node_edge_layer_1 = VisualNodeEdgeMLPEnding.get_node_edge_layer(in_node_features=256, in_edge_features=256,
                                                                              hidden_features=256, out_node_features=512,
-                                                                             out_edge_features=512, residual=False)
+                                                                             out_edge_features=512, residual=True)
 
         self.node_edge_layer_2 = VisualNodeEdgeMLPEnding.get_node_edge_layer(in_node_features=512, in_edge_features=512,
                                                                              hidden_features=512, out_edge_features=1024,
-                                                                             out_node_features=1024, residual=False)
+                                                                             out_node_features=1024, residual=True)
 
         self.node_edge_layer_3 = VisualNodeEdgeMLPEnding.get_node_edge_layer(in_node_features=1024, in_edge_features=1024,
                                                                              hidden_features=1024, out_edge_features=512,
-                                                                             out_node_features=512, residual=False)
+                                                                             out_node_features=512, residual=True)
 
         self.node_edge_layer_4 = VisualNodeEdgeMLPEnding.get_node_edge_layer(in_node_features=512, in_edge_features=512,
                                                                              hidden_features=512, out_edge_features=256,
-                                                                             out_node_features=256, residual=False)
+                                                                             out_node_features=256, residual=True)
 
         self.node_classifier = torch.nn.Sequential(
             torch.nn.Linear(256, 256),
@@ -116,3 +116,63 @@ class DepthwiseSeparableConv2d(torch.nn.Module):
         x = self.pointwise(x)
         # print(f"output_shape: {x.shape}")
         return x
+
+
+class EdgeSubModel(torch.nn.Module):
+    def __init__(self, in_node_features, in_edge_features, hidden_features, out_edge_features, residual):
+        super().__init__()
+        self.residual = residual
+        self.edge_mlp = torch.nn.Sequential(
+            torch.nn.Linear(2 * in_node_features + in_edge_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_edge_features)
+        )
+
+        self.residual_combine = torch.nn.Sequential(
+            torch.nn.Linear(in_edge_features + out_edge_features, out_edge_features)
+        )
+
+    def forward(self, src_node_features, dest_node_features, edge_attr, u, batch):
+        out = torch.cat([src_node_features, dest_node_features, edge_attr], 1)
+        out = self.edge_mlp(out)
+        if self.residual:
+            # out = out + edge_attr
+            out = torch.cat([out, edge_attr], 1)
+            out = self.residual_combine(out)
+
+        return out
+
+
+class NodeSubModel(torch.nn.Module):
+    def __init__(self, in_node_features, in_edge_features, hidden_features, out_node_features, residual):
+        super().__init__()
+        self.residual = residual
+        self.node_mlp_1 = torch.nn.Sequential(
+            torch.nn.Linear(in_node_features + in_edge_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_node_features)
+        )
+
+        self.node_mlp_2 = torch.nn.Sequential(
+            torch.nn.Linear(in_node_features + out_node_features, hidden_features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_features, out_node_features)
+        )
+
+        self.residual_combine = torch.nn.Sequential(
+            torch.nn.Linear(in_node_features + out_node_features, out_node_features)
+        )
+
+    def forward(self, src_node_features, edge_index, edge_attr, u, batch):
+        row, col = edge_index
+        out = torch.cat([src_node_features[col], edge_attr], dim=1)
+        out = self.node_mlp_1(out)
+        out = scatter_mean(out, row, dim=0, dim_size=src_node_features.size(0))
+        out = torch.cat([src_node_features, out], dim=1)
+        out = self.node_mlp_2(out)
+        if self.residual:
+            # out = out + src_node_features
+            out = torch.cat([out, src_node_features], dim=1)
+            out = self.residual_combine(out)
+
+        return out
