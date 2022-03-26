@@ -58,7 +58,7 @@ class Trainer(object):
         test_size = len(table_dataset) - train_size
         train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
 
-        self.train_loader = DataLoader(train_dataset, batch_size=self.conf.batch_size, shuffle=True)
+        self.train_loader = DataLoader(train_dataset, batch_size=self.conf.gpu_max_batch, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=1)
 
         self.optimizer = torch.optim.Adam(self.model.parameters())
@@ -86,21 +86,19 @@ class Trainer(object):
         self.conf.logger.info("Starting training ...")
         wandb.watch(self.model, self.criterion, log="all", log_freq=10)
 
+        mini_batch_counter = 0
         epoch_best_accuracy_edges = 0
         epoch_accuracy_nodes = []
         epoch_accuracy_edges = []
         epoch_loss = []
-        
-        upgrade_weights = 2
-        upgrade_weights_counter = 0
 
         for epoch in range(self.conf.epochs):
             self.conf.logger.info(f"Running epoch: {epoch}/{self.conf.epochs}")
             for data in tqdm(self.train_loader, disable=self.conf.tqdm_disable):
                 data.to(self.device)
 
-                upgrade_weights_counter += 1
-                loss, out_nodes, out_edges = self.train_batch(data, counter=upgrade_weights_counter)
+                mini_batch_counter += 1
+                loss, out_nodes, out_edges = self.train_batch(data, mini_batch_counter=mini_batch_counter)
 
                 epoch_loss += [float(loss)]
 
@@ -113,19 +111,8 @@ class Trainer(object):
                 # epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
                 epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
 
-                # import os
-                # os.system("nvidia-smi")  
-
                 data.cpu()
                 torch.cuda.empty_cache()
-
-                # del loss
-                # del out_nodes
-                # del out_edges
-                # del data
-
-
-                # print(torch.cuda.memory_summary(device=self.device, abbreviated=False))
 
             # Calculate TRAIN metrics
             # epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
@@ -159,31 +146,27 @@ class Trainer(object):
             epoch_accuracy_edges_avg = []
             epoch_loss = []
 
-    def train_batch(self, data, evaluation=False, counter=0):
+    def train_batch(self, data, evaluation=False, mini_batch_counter=0):
         out_nodes, out_edges = self.model(data)
-        #y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
+        # y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
         edge_output_attr = torch.argmax(data.edge_output_attr, dim=1)
 
         # loss_nodes = self.criterion(out_nodes, y)
         loss_edges = self.criterion(out_edges, edge_output_attr)
 
         if not evaluation:
-            # self.optimizer.zero_grad()
-
-            if (counter) % 4 == 0:
-                # print(f"B (counter: {counter})")
+            if mini_batch_counter % self.conf.batch_size == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             else:
-                # print(f"A (counter: {counter})")
                 loss_edges.backward()
 
+            # self.optimizer.zero_grad()
             # loss_nodes.backward(retain_graph=True)
+            # loss_edges.backward()
             # self.optimizer.step()
 
-        # return loss_edges, out_nodes, out_edges
         return loss_edges, None, out_edges
-        # return None, out_nodes, out_edges
 
     def test(self, load_model=False, visualize=False):
         if load_model:
@@ -220,7 +203,7 @@ class Trainer(object):
                 torch.cuda.empty_cache()
                 # if visualize:
                 #    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
-                    # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
+                #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
             # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
             accuracy_nodes = 0
