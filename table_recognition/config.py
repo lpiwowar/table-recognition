@@ -74,6 +74,7 @@ class Config(object):
         self.preload_model = None
         self.train_percentage = None
         self.test_percentage = None
+        self.gpu_max_batch = None
 
         # Infer section
         self.input_data_dir = None
@@ -191,6 +192,7 @@ class Config(object):
         self.train_percentage = Config.validate_float(train_config["train_percentage"], mandatory=False)
         self.test_percentage = Config.validate_float(train_config["test_percentage"], mandatory=False)
         self.model_name = train_config["model_name"]
+        self.gpu_max_batch = Config.validate_int(train_config["gpu_max_batch"], mandatory=False)
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):
