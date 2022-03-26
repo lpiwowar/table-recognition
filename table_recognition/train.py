@@ -38,6 +38,16 @@ class Trainer(object):
         self.model = self.available_models[self.conf.model_name]().to(self.device)
         self.conf.logger.info(f"Using {self.device} device for training.")
         self.conf.logger.info(f"Training {type(self.model).__name__} model.")
+        
+        param_size = 0
+        for param in self.model.parameters():
+            param_size += param.nelement() * param.element_size()
+        buffer_size = 0
+        for buffer in self.model.buffers():
+            buffer_size += buffer.nelement() * buffer.element_size()
+
+        size_all_mb = (param_size + buffer_size) / 1024**2
+        self.conf.logger.info('model size: {:.3f}MB'.format(size_all_mb))
 
         if self.conf.preload_model:
             self.model.load_state_dict(torch.load(self.conf.model_path))
@@ -80,24 +90,46 @@ class Trainer(object):
         epoch_accuracy_nodes = []
         epoch_accuracy_edges = []
         epoch_loss = []
+        
+        upgrade_weights = 2
+        upgrade_weights_counter = 0
 
         for epoch in range(self.conf.epochs):
             self.conf.logger.info(f"Running epoch: {epoch}/{self.conf.epochs}")
             for data in tqdm(self.train_loader, disable=self.conf.tqdm_disable):
-                loss, out_nodes, out_edges = self.train_batch(data)
+                data.to(self.device)
+
+                upgrade_weights_counter += 1
+                loss, out_nodes, out_edges = self.train_batch(data, counter=upgrade_weights_counter)
+
                 epoch_loss += [float(loss)]
 
-                exp_out_nodes = torch.argmax(data.y, dim=1)
+                # exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
-                out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
-                out_edges = torch.argmax(torch.exp(out_edges), dim=1)
-
-                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                # out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
+                out_edges = torch.argmax(torch.exp(out_edges), dim=1) 
+                
+                # epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
                 epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
 
+                # import os
+                # os.system("nvidia-smi")  
+
+                data.cpu()
+                torch.cuda.empty_cache()
+
+                # del loss
+                # del out_nodes
+                # del out_edges
+                # del data
+
+
+                # print(torch.cuda.memory_summary(device=self.device, abbreviated=False))
+
             # Calculate TRAIN metrics
-            epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
+            # epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
+            epoch_accuracy_nodes_avg = 0
             epoch_accuracy_edges_avg = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
             self.conf.logger.info(f"TRAIN DATA => "
@@ -127,21 +159,31 @@ class Trainer(object):
             epoch_accuracy_edges_avg = []
             epoch_loss = []
 
-    def train_batch(self, data, evaluation=False):
-        data.to(self.device)
+    def train_batch(self, data, evaluation=False, counter=0):
         out_nodes, out_edges = self.model(data)
-        y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
+        #y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
+        edge_output_attr = torch.argmax(data.edge_output_attr, dim=1)
 
-        loss_nodes = self.criterion(out_nodes, y)
+        # loss_nodes = self.criterion(out_nodes, y)
         loss_edges = self.criterion(out_edges, edge_output_attr)
 
         if not evaluation:
-            self.optimizer.zero_grad()
-            # loss_nodes.backward(retain_graph=True)
-            loss_edges.backward()
-            self.optimizer.step()
+            # self.optimizer.zero_grad()
 
-        return loss_edges, out_nodes, out_edges
+            if (counter) % 4 == 0:
+                # print(f"B (counter: {counter})")
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            else:
+                # print(f"A (counter: {counter})")
+                loss_edges.backward()
+
+            # loss_nodes.backward(retain_graph=True)
+            # self.optimizer.step()
+
+        # return loss_edges, out_nodes, out_edges
+        return loss_edges, None, out_edges
+        # return None, out_nodes, out_edges
 
     def test(self, load_model=False, visualize=False):
         if load_model:
@@ -149,7 +191,7 @@ class Trainer(object):
             self.model.load_state_dict(torch.load(self.conf.model_path))
         else:
             self.conf.logger.info("Testing neural network with current weights.")
-
+            
         self.model.eval()
         with torch.no_grad():
             counter = 0
@@ -157,26 +199,31 @@ class Trainer(object):
             epoch_accuracy_edges = []
             epoch_loss = []
             for data in tqdm(self.test_loader, disable=self.conf.tqdm_disable):
+                data.to(self.device)
                 counter += 1
                 # self.conf.logger.info(f"Tested {counter}/{len(self.test_loader)} images ...")
 
-                loss, out_nodes, out_edges = self.train_batch(data, evaluation=True)
-                epoch_loss += [float(loss)]
+                loss, out_nodes, out_edges = self.train_batch(data.to(self.device), evaluation=True)
+                epoch_loss += [float(loss.item())]
 
-                exp_out_nodes = torch.argmax(data.y, dim=1)
+                # exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
-                out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
+                # out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
                 out_edges = torch.argmax(torch.exp(out_edges), dim=1)
 
-                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                # epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
                 epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
+                
+                # print(torch.cuda.memory_summary(device=self.device, abbreviated=False))
+                data.cpu()
+                torch.cuda.empty_cache()
+                # if visualize:
+                #    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
+                    # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
-                if visualize:
-                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
-                # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
-
-            accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
+            # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
+            accuracy_nodes = 0
             accuracy_edges = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
             self.conf.logger.info(f"TEST DATA => "
