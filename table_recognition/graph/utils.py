@@ -135,7 +135,7 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     data.cpu()
     out_nodes.cpu()
     out_edges.cpu()
-    
+
     us = data.edge_index[0]
     vs = data.edge_index[1]
     color_edges = {

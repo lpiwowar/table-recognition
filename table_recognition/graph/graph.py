@@ -11,7 +11,7 @@ from table_recognition.graph.colorers import OutputGraphColorer
 from table_recognition.graph.utils import coords_string_to_tuple_list
 from table_recognition.graph.edge_discovery import KNearestNeighbors
 from table_recognition.graph.utils import roi_align_single_image
-
+from table_recognition.graph.node_splitter import NodeSplitter
 
 class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
@@ -41,6 +41,8 @@ class Graph(object):
             "geometry-graph-colorer": GeometryGraphColorer(self)
         }
 
+        self.node_splitter = NodeSplitter(self.img_path, self.ocr_output_path)
+
     def initialize(self):
         ns = {"xmlns": "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15",
               "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
@@ -54,6 +56,8 @@ class Graph(object):
             coords_xml = text_line_xml.find("./xmlns:Coords", ns)
             polygon_pts = coords_string_to_tuple_list(coords_xml.attrib["points"])
             self.nodes.add(Node(polygon_pts))
+
+        self.node_splitter.split_node()
 
         # Discover edges
         self.edge_discovery_methods[self.edge_discovery_method].discover_edges()

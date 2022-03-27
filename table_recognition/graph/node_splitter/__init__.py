@@ -1,0 +1,1 @@
+from table_recognition.graph.node_splitter.pero_ocr.user_scripts.node_splitter import NodeSplitter
