@@ -38,7 +38,8 @@ class Trainer(object):
         self.model = self.available_models[self.conf.model_name]().to(self.device)
         self.conf.logger.info(f"Using {self.device} device for training.")
         self.conf.logger.info(f"Training {type(self.model).__name__} model.")
-        
+
+        # -- Source: https://discuss.pytorch.org/t/finding-model-size/130275 --------
         param_size = 0
         for param in self.model.parameters():
             param_size += param.nelement() * param.element_size()
@@ -48,7 +49,8 @@ class Trainer(object):
 
         size_all_mb = (param_size + buffer_size) / 1024**2
         self.conf.logger.info('model size: {:.3f}MB'.format(size_all_mb))
-
+        # -- Source end: https://discuss.pytorch.org/t/finding-model-size/130275 ----
+        
         if self.conf.preload_model:
             self.model.load_state_dict(torch.load(self.conf.model_path))
 
