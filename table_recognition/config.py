@@ -75,9 +75,11 @@ class Config(object):
         self.train_percentage = None
         self.test_percentage = None
         self.gpu_max_batch = None
+        self.model_name = None
 
         # Infer section
         self.input_data_dir = None
+
 
         # Logger
         self.logger = None
