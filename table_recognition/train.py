@@ -99,7 +99,7 @@ class Trainer(object):
             for data in tqdm(self.train_loader, disable=self.conf.tqdm_disable):
                 data.to(self.device)
 
-                mini_batch_counter += 1
+                mini_batch_counter += self.conf.gpu_max_batch
                 loss, out_nodes, out_edges = self.train_batch(data, mini_batch_counter=mini_batch_counter)
 
                 epoch_loss += [float(loss)]
