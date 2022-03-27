@@ -50,7 +50,7 @@ class Trainer(object):
         size_all_mb = (param_size + buffer_size) / 1024**2
         self.conf.logger.info('model size: {:.3f}MB'.format(size_all_mb))
         # -- Source end: https://discuss.pytorch.org/t/finding-model-size/130275 ----
-        
+
         if self.conf.preload_model:
             self.model.load_state_dict(torch.load(self.conf.model_path))
 
@@ -203,8 +203,8 @@ class Trainer(object):
                 # print(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 data.cpu()
                 torch.cuda.empty_cache()
-                # if visualize:
-                #    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
+                if visualize:
+                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
                 #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
             # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
