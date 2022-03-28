@@ -12,6 +12,7 @@ from table_recognition.models.node_edge_mlp_ending import EdgeSubModel
 class VisualNodeEdgeMLPEnding(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        # TODO - Add parameters to the neural network and put these 4 layers to cycle
         self.node_edge_layer_1 = VisualNodeEdgeMLPEnding.get_node_edge_layer(in_node_features=256, in_edge_features=256,
                                                                              hidden_features=256, out_node_features=512,
                                                                              out_edge_features=512, residual=False)
@@ -33,7 +34,6 @@ class VisualNodeEdgeMLPEnding(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Dropout(),
             torch.nn.Linear(256, 2),
-            torch.nn.ReLU(),
         )
 
         self.edge_classifier = torch.nn.Sequential(
@@ -41,9 +41,10 @@ class VisualNodeEdgeMLPEnding(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Dropout(),
             torch.nn.Linear(256, 4),
-            torch.nn.ReLU(),
         )
 
+        # TODO - Try to remove DepthWiseSeparable and replace it with Conv2D
+        # TODO - Try to increase the ROIAlign output resolution (Resolution of 10x10 is too small)
         self.node_cnn = torch.nn.Sequential(
             DepthwiseSeparableConv2d(3, 64, kernel_size=(3, 3)),
             DepthwiseSeparableConv2d(64, 64, kernel_size=(3, 3)),

@@ -25,12 +25,12 @@ class NodeEdgeMLPEnding(torch.nn.Module):
                                                                        hidden_features=64, out_edge_features=16,
                                                                        out_node_features=16, residual=True)
 
+        # TODO - Add another edge class (nodes are on the same line/column but are not a direct neighbours
         self.node_classifier = torch.nn.Sequential(
             torch.nn.Linear(16, 16),
             torch.nn.ReLU(),
             torch.nn.Dropout(),
             torch.nn.Linear(16, 2),
-            torch.nn.ReLU(),
         )
 
         self.edge_classifier = torch.nn.Sequential(
@@ -38,7 +38,6 @@ class NodeEdgeMLPEnding(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Dropout(),
             torch.nn.Linear(16, 4),
-            torch.nn.ReLU(),
         )
 
     @staticmethod
