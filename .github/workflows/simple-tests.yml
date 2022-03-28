@@ -37,5 +37,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run --help command
       run: |
-        python table-recognition.py --help
+        python table_recognition.py --help
 
