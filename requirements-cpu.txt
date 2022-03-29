@@ -19,3 +19,4 @@ torch-geometric
 matplotlib==3.5.1
 networkx==2.6.3
 opencv-python==4.5.5.64
+scikit-image==0.19.2
