@@ -11,6 +11,7 @@ from table_recognition.graph.colorers import OutputGraphColorer
 from table_recognition.graph.utils import coords_string_to_tuple_list
 from table_recognition.graph.edge_discovery import KNearestNeighbors
 from table_recognition.graph.utils import roi_align_single_image
+from table_recognition.graph.edge_discovery import NodeVisibility
 
 
 class Graph(object):
@@ -30,7 +31,8 @@ class Graph(object):
         self.nodes = set()
 
         self.edge_discovery_methods = {
-            "k-nearest-neighbors": KNearestNeighbors(self)
+            "k-nearest-neighbors": KNearestNeighbors(self),
+            "node-visibility": NodeVisibility(self)
         }
 
         self.ground_truth_nodes = []

@@ -1,1 +1,2 @@
 from table_recognition.graph.edge_discovery.k_nearest_neighbors import KNearestNeighbors
+from table_recognition.graph.edge_discovery.node_visibility import NodeVisibility
