@@ -26,7 +26,7 @@ class NodeVisibility(object):
         print("hello")
         for x in range(0, 181):
             line_array = self.get_line((210, 148), x)
-            line_array[(148-10):(148+10), (210-10):(210+10)] = 255
+            # line_array[(148-10):(148+10), (210-10):(210+10)] = 255
             # cv2.imshow("test", line_array)
             # cv2.waitKey(0)
         end = time.time()
@@ -54,7 +54,7 @@ class NodeVisibility(object):
         angle_rad = np.radians(angle_deg)
 
         # Calculate parameters of the line (weight, bias)
-        line_slope = np.tan((np.pi/2) - angle_rad)
+        line_slope = np.tan(-((np.pi/2) - angle_rad))
         line_bias = y - line_slope * x
 
         # Calculate intersections with edges of the image
@@ -73,7 +73,7 @@ class NodeVisibility(object):
         line_points += [(self.img_h - 1, x_top)] if x_top else []
         line_points += [(0, x_bot)] if x_bot else []
         line_points += [(y_right, self.img_w - 1)] if y_right else []
-        line_points += [(y_left, 0 )] if y_left else []
+        line_points += [(y_left, 0)] if y_left else []
 
         line_coords = line_nd(line_points[0], line_points[1])
         line_array = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
