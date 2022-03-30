@@ -2,8 +2,6 @@ import cv2
 import numpy as np
 
 from skimage.draw import line_nd
-import matplotlib.pyplot as plt
-from typing import Tuple
 
 
 class NodeVisibility(object):
