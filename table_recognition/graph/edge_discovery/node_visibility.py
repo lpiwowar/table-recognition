@@ -1,3 +1,5 @@
+from math import floor
+
 import cv2
 import numpy as np
 
@@ -12,25 +14,43 @@ class NodeVisibility(object):
         self.img_h, self.img_w, self.img_c = img.shape
 
     def discover_edges(self):
+        boxes_image = self.render_boxes_image()
+
+        import time
+        start = time.time()
+        for node in self.graph.nodes:
+            # print(node)
+            # print(node.bbox["center"])
+            for degree in range(0, 181, 2):
+                # print(degree)
+                line_array = self.get_line(node.bbox["center"], degree)
+                # cv2.imshow("test", line_array)
+                # cv2.waitKey(0)
+        end = time.time()
+        print(end - start)
+
         # How to make logical and between the line and rendered boxes image:
         # >>> a = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
         # >>> b = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         # >>> d = np.dstack([a, b])
         # >>> d.max(axis=2)
+
+        """
         boxes_image = self.render_boxes_image()
         import time
         # for node in self.graph.nodes:
-        import time
         print(len(self.graph.nodes))
         start = time.time()
         print("hello")
         for x in range(0, 181):
-            line_array = self.get_line((210, 148), x)
-            # line_array[(148-10):(148+10), (210-10):(210+10)] = 255
-            # cv2.imshow("test", line_array)
-            # cv2.waitKey(0)
+            print(x)
+            line_array = self.get_line((585, 75), 86)
+            line_array[(75-10):(75+10), (585-10):(585+10)] = 255
+            cv2.imshow("test", line_array)
+            cv2.waitKey(0)
         end = time.time()
         print(end - start)
+        """
 
     def get_line(self, point, angle_deg):
         assert 0 <= point[0] <= self.img_w, "ERROR: Coordinates out of image"
@@ -63,17 +83,17 @@ class NodeVisibility(object):
         y_right_value = self.img_w * line_slope + line_bias
         y_left_value = 0 * line_slope + line_bias
 
-        x_top = x_top_value if 0 <= x_top_value <= self.img_w else 0
-        x_bot = x_bot_value if 0 <= x_bot_value <= self.img_w else 0
-        y_right = y_right_value if 0 <= y_right_value <= self.img_h else 0
-        y_left = y_left_value if 0 <= y_left_value <= self.img_w else 0
+        x_top = floor(x_top_value) if 0 <= x_top_value <= self.img_w else None
+        x_bot = floor(x_bot_value) if 0 <= x_bot_value <= self.img_w else None
+        y_right = floor(y_right_value) if 0 <= y_right_value <= self.img_h else None
+        y_left = floor(y_left_value) if 0 <= y_left_value <= self.img_w else None
 
         # Find the two points
         line_points = []
-        line_points += [(self.img_h - 1, x_top)] if x_top else []
-        line_points += [(0, x_bot)] if x_bot else []
-        line_points += [(y_right, self.img_w - 1)] if y_right else []
-        line_points += [(y_left, 0)] if y_left else []
+        line_points += [(self.img_h - 1, x_top)] if x_top is not None else []
+        line_points += [(0, x_bot)] if x_bot is not None else []
+        line_points += [(y_right, self.img_w - 1)] if y_right is not None else []
+        line_points += [(y_left, 0)] if y_left is not None else []
 
         line_coords = line_nd(line_points[0], line_points[1])
         line_array = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
