@@ -20,44 +20,62 @@ class NodeVisibility(object):
         boxes_image = self.render_boxes_image()
         import time
         # for node in self.graph.nodes:
+        import time
+        print(len(self.graph.nodes))
+        start = time.time()
+        print("hello")
         for x in range(0, 181):
-            line_array = self.get_line_array_in_180(x)
-            cv2.imshow("test", line_array)
-            cv2.waitKey(0)
-            # print(line_array)
+            line_array = self.get_line((210, 148), x)
+            line_array[(148-10):(148+10), (210-10):(210+10)] = 255
+            # cv2.imshow("test", line_array)
+            # cv2.waitKey(0)
+        end = time.time()
+        print(end - start)
 
-        pass
+    def get_line(self, point, angle_deg):
+        assert 0 <= point[0] <= self.img_w, "ERROR: Coordinates out of image"
+        assert 0 <= point[1] <= self.img_h, "ERROR: Coordinates out of image"
 
-    def get_line_array_in_180(self, angle_deg):
-        assert 0 <= angle_deg <= 180, "ERROR: get_line_array_in_180() accepts deg value in range <0,180>"
+        x, y = point
 
-        if 0 <= angle_deg <= 90:
-            return self.get_line_array_in_90(angle_deg)
-        else:
-            line_array = self.get_line_array_in_90(180 - angle_deg)
-            return np.flip(line_array, 0)
+        # Return line immediately for extreme values 0, 90, and 180 degrees
+        if angle_deg in [0, 90, 180]:
+            if angle_deg in [0, 180]:
+                # Vertical line
+                line_coords = line_nd((0, x), (self.img_h - 1, x))
+            else:
+                # Horizontal line
+                line_coords = line_nd((y, 0), (y, self.img_w - 1))
+            line_array = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
+            line_array[line_coords] = 255
+            return line_array
 
-    def get_line_array_in_90(self, angle_deg):
-        assert 0 <= angle_deg <= 90, "ERROR: get_line_array_in_90() accepts deg value in range <0,90>"
+        # angle_rad = (np.pi / 180) * angle_deg
+        angle_rad = np.radians(angle_deg)
 
-        angle_rad = (np.pi / 180) * angle_deg
+        # Calculate parameters of the line (weight, bias)
+        line_slope = np.tan((np.pi/2) - angle_rad)
+        line_bias = y - line_slope * x
 
-        center_x = self.img_w // 2
-        center_y = self.img_h // 2
+        # Calculate intersections with edges of the image
+        x_top_value = (self.img_h - line_bias) / line_slope
+        x_bot_value = (0 - line_bias) / line_slope
+        y_right_value = self.img_w * line_slope + line_bias
+        y_left_value = 0 * line_slope + line_bias
 
-        # Angle in (0, 45>
-        if angle_deg < 45:
-            x_diff = np.floor(np.tan(angle_rad) * center_x)
-            start_point = (self.img_h - 1, center_x - x_diff)
-            end_point = (0, center_x + x_diff)
+        x_top = x_top_value if 0 <= x_top_value <= self.img_w else 0
+        x_bot = x_bot_value if 0 <= x_bot_value <= self.img_w else 0
+        y_right = y_right_value if 0 <= y_right_value <= self.img_h else 0
+        y_left = y_left_value if 0 <= y_left_value <= self.img_w else 0
 
-        # Angle in <45, 90>
-        elif 45 <= angle_deg <= 90:
-            y_diff = np.tan((np.pi/2) - angle_rad) * center_y
-            start_point = (center_y + y_diff, 0)
-            end_point = (center_y - y_diff, self.img_w - 1)
+        # Find the two points
+        line_points = []
+        line_points += [(self.img_h - 1, x_top)] if x_top else []
+        line_points += [(0, x_bot)] if x_bot else []
+        line_points += [(y_right, self.img_w - 1)] if y_right else []
+        line_points += [(y_left, 0 )] if y_left else []
 
-        line_coords = line_nd(start_point, end_point)
+        line_coords = line_nd(line_points[0], line_points[1])
         line_array = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
         line_array[line_coords] = 255
 
