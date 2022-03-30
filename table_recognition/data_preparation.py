@@ -28,10 +28,11 @@ def data_preparation(conf):
         dataset_img_path = os.path.join(conf.dataset_img_path, ocr_file_prefix + '.jpg')
 
         graph = Graph(conf, ocr_file_path, dataset_gt_path, dataset_img_path,
-                      input_graph_colorer=conf.input_graph_colorer)
+                      input_graph_colorer=conf.input_graph_colorer,
+                      edge_discovery_method=conf.edge_discovery)
 
         graph.initialize()
-        graph.color_output()
-        graph.color_input()
-        graph.visualize()
-        graph.dump()
+        # graph.color_output()
+        # graph.color_input()
+        # graph.visualize()
+        # graph.dump()

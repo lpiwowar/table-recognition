@@ -58,6 +58,7 @@ class Config(object):
         self.prepared_data_dir = None
         self.input_graph_colorer = None
         self.visual_features = None
+        self.edge_discovery = None
 
         # Train parameters
         self.wandb_mode = None
@@ -160,6 +161,7 @@ class Config(object):
         self.prepared_data_dir = Config.validate_file(dataset_prep_config["prepared_data_dir"], mandatory=False)
         self.input_graph_colorer = dataset_prep_config["input_graph_colorer"]
         self.visual_features = Config.validate_bool(dataset_prep_config["visual_features"])
+        self.edge_discovery = dataset_prep_config["edge_discovery"]
 
     def parse_infer_section(self, config_parser):
         """
