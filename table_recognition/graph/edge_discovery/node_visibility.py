@@ -1,8 +1,8 @@
+import multiprocessing
 from math import floor
 
 import cv2
 import numpy as np
-
 from skimage.draw import line_nd
 
 from table_recognition.graph.edge_discovery.edge import Edge
@@ -26,15 +26,16 @@ class NodeVisibility(object):
         for node in self.graph.nodes:
             self.nodes_db[node.id] = node
 
-    def discover_edges(self):
+    def discover_edges_subprocess(self, edges, start, end):
+        print("RUNNING")
         self.populate_nodes_db()
         boxes_image = self.render_boxes_image()
-        print(f"discovering edges for: {self.graph.img_path}")
-
-        for node in self.graph.nodes:
+        nodes = list(self.graph.nodes)
+        for node in nodes[start:end]:
             # node_distance = { <node_id>: <distance> }
             node_distance = {}
             for degree in range(0, 181, NodeVisibility.SAMPLING_RATE):
+                print("uaaa")
                 # Get values from the image that are on the line
                 line_coordinates = self.get_line_coordinates(node.bbox["center"], degree)
                 line_values = boxes_image[line_coordinates[0], line_coordinates[1]].astype(int).squeeze()
@@ -64,10 +65,43 @@ class NodeVisibility(object):
 
             node_distance_sorted = sorted(node_distance.items(), key=lambda item: item[1])
             for node_id, _ in node_distance_sorted[:NodeVisibility.K_NEAREST_VALUES]:
-                self.graph.edges = self.graph.edges.union({Edge(node, self.nodes_db[node_id])})
-                self.graph.edges = self.graph.edges.union({Edge(self.nodes_db[node_id], node)})
+                edges += [Edge(node, self.nodes_db[node_id])]
+                edges += [Edge(self.nodes_db[node_id], node)]
 
-        self.graph.edges = {edge for edge in self.graph.edges if not edge.is_reflexive()}
+        edges = {edge for edge in edges if not edge.is_reflexive()}
+        print("ENDING")
+
+    def discover_edges(self):
+        manager = multiprocessing.Manager()
+        global_edges = manager.list()       # Shared variable - all discovered edges
+
+        # Define jobs for each subprocess
+        proc1_start = 0
+        proc1_end = len(self.graph.nodes) // 3
+        proc2_start = (len(self.graph.nodes) // 3) + 1
+        proc2_end = 2 * (len(self.graph.nodes) // 3)
+        proc3_start = (2 * (len(self.graph.nodes) // 3)) + 1
+        proc3_end = len(self.graph.nodes)
+
+        # Define subprocesses
+        proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc1_start,
+                                                                                     proc1_end))
+        proc2 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc2_start,
+                                                                                     proc2_end))
+        proc3 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc3_start,
+                                                                                     proc3_end))
+
+        # Start subprocesses
+        proc1.start()
+        proc2.start()
+        proc3.start()
+
+        # Wait for subprocesses to finish
+        proc1.join()
+        proc2.join()
+        proc3.join()
+
+        self.graph.edges = set(global_edges)
 
     def get_line_coordinates(self, point, angle_deg):
         assert 0 <= point[0] <= self.img_w, "ERROR: Coordinates out of image"
@@ -140,6 +174,4 @@ class NodeVisibility(object):
             # cv2.putText(render_image, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
             #            cv2.LINE_AA)
 
-        # cv2.imshow("test", render_image)
-        # cv2.waitKey(0)
         return render_image
