@@ -31,8 +31,14 @@ def data_preparation(conf):
                       input_graph_colorer=conf.input_graph_colorer,
                       edge_discovery_method=conf.edge_discovery)
 
+        import time
+        start = time.time()
+
         graph.initialize()
-        # graph.color_output()
-        # graph.color_input()
-        # graph.visualize()
-        # graph.dump()
+        graph.color_output()
+        graph.color_input()
+        graph.visualize()
+        graph.dump()
+
+        end = time.time()
+        print(end - start)
