@@ -27,15 +27,14 @@ class NodeVisibility(object):
             self.nodes_db[node.id] = node
 
     def discover_edges_subprocess(self, edges, start, end):
-        print("RUNNING")
         self.populate_nodes_db()
         boxes_image = self.render_boxes_image()
         nodes = list(self.graph.nodes)
+        
         for node in nodes[start:end]:
             # node_distance = { <node_id>: <distance> }
             node_distance = {}
             for degree in range(0, 181, NodeVisibility.SAMPLING_RATE):
-                print("uaaa")
                 # Get values from the image that are on the line
                 line_coordinates = self.get_line_coordinates(node.bbox["center"], degree)
                 line_values = boxes_image[line_coordinates[0], line_coordinates[1]].astype(int).squeeze()
@@ -69,7 +68,6 @@ class NodeVisibility(object):
                 edges += [Edge(self.nodes_db[node_id], node)]
 
         edges = {edge for edge in edges if not edge.is_reflexive()}
-        print("ENDING")
 
     def discover_edges(self):
         manager = multiprocessing.Manager()
