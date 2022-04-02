@@ -29,7 +29,6 @@ class NodeVisibility(object):
     def discover_edges(self):
         self.populate_nodes_db()
         boxes_image = self.render_boxes_image()
-
         print(f"discovering edges for: {self.graph.img_path}")
 
         for node in self.graph.nodes:
@@ -111,7 +110,7 @@ class NodeVisibility(object):
         x_top = floor(x_top_value) if 0 <= x_top_value <= self.img_w else None
         x_bot = floor(x_bot_value) if 0 <= x_bot_value <= self.img_w else None
         y_right = floor(y_right_value) if 0 <= y_right_value <= self.img_h else None
-        y_left = floor(y_left_value) if 0 <= y_left_value <= self.img_w else None
+        y_left = floor(y_left_value) if 0 <= y_left_value <= self.img_h else None
 
         # Find the two points
         line_points = []
