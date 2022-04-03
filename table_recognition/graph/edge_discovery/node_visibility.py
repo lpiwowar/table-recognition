@@ -30,17 +30,20 @@ class NodeVisibility(object):
         self.populate_nodes_db()
         boxes_image = self.render_boxes_image()
         nodes = list(self.graph.nodes)
-        
+
         for node in nodes[start:end]:
             # node_distance = { <node_id>: <distance> }
-            node_distance = {}
+            node_degrees = {}
             for degree in range(0, 181, NodeVisibility.SAMPLING_RATE):
                 # Get values from the image that are on the line
                 line_coordinates = self.get_line_coordinates(node.bbox["center"], degree)
                 line_values = boxes_image[line_coordinates[0], line_coordinates[1]].astype(int).squeeze()
 
                 # Find indexes that split the line into two sections
-                node_values_idxs = np.where(line_values == node.id)
+                node_values_idxs = np.where(line_values == node.id)[0]
+                if node_values_idxs.size == 0:
+                    # This may happen in rare cases (e.g.: when two boxes overlap each other a lot!)
+                    continue
                 node_values_idxs_min = np.min(node_values_idxs)
                 node_values_idxs_max = np.max(node_values_idxs)
 
@@ -56,23 +59,37 @@ class NodeVisibility(object):
 
                 if right_nonzero_idx:
                     right_node_id = line_values_right[right_nonzero_idx]
-                    node_distance[right_node_id] = right_nonzero_idx
+                    node_degrees[degree // 20] = node_degrees.get(degree // 20, [])
+                    node_degrees[degree // 20] += [(right_node_id, right_nonzero_idx)]
 
                 if left_nonzero_idx:
                     left_node_id = line_values_left[left_nonzero_idx]
-                    node_distance[left_node_id] = left_nonzero_idx
+                    new_degrees = 180 + degree
+                    node_degrees[new_degrees // 20] = node_degrees.get(new_degrees // 20, [])
+                    node_degrees[new_degrees // 20] += [(left_node_id, left_nonzero_idx)]
 
-            node_distance_sorted = sorted(node_distance.items(), key=lambda item: item[1])
-            for node_id, _ in node_distance_sorted[:NodeVisibility.K_NEAREST_VALUES]:
-                edges += [Edge(node, self.nodes_db[node_id])]
-                edges += [Edge(self.nodes_db[node_id], node)]
+            for key in node_degrees:
+                node_degrees[key].sort(key=lambda item: item[1], reverse=True)
+
+            for key in node_degrees:
+                if node_degrees[key]:
+                    print(node_degrees[key])
+                    new_id = node_degrees[key].pop()[0]
+                    edges += [Edge(node, self.nodes_db[new_id])]
+                    edges += [Edge(self.nodes_db[new_id], node)]
+            # node_distance_sorted = sorted(node_degrees.items(), key=lambda item: item[1])
+            # for node_id, _ in node_distance_sorted[:NodeVisibility.K_NEAREST_VALUES]:
+            #     edges += [Edge(node, self.nodes_db[node_id])]
+            #     edges += [Edge(self.nodes_db[node_id], node)]
 
         edges = {edge for edge in edges if not edge.is_reflexive()}
 
     def discover_edges(self):
-        manager = multiprocessing.Manager()
-        global_edges = manager.list()       # Shared variable - all discovered edges
-
+        # manager = multiprocessing.Manager()
+        # global_edges = manager.list()       # Shared variable - all discovered edges
+        global_edges = []
+        self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
+        """
         # Define jobs for each subprocess
         proc1_start = 0
         proc1_end = len(self.graph.nodes) // 3
@@ -82,23 +99,25 @@ class NodeVisibility(object):
         proc3_end = len(self.graph.nodes)
 
         # Define subprocesses
-        proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc1_start,
-                                                                                     proc1_end))
-        proc2 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc2_start,
-                                                                                     proc2_end))
-        proc3 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc3_start,
-                                                                                     proc3_end))
+        # proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc1_start,
+        #                                                                              proc1_end))
+        proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, 0,
+                                                                                      len(self.graph.nodes)))
+        # proc2 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc2_start,
+        #                                                                              proc2_end))
+        # proc3 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc3_start,
+        #                                                                              proc3_end))
 
         # Start subprocesses
         proc1.start()
-        proc2.start()
-        proc3.start()
+        # proc2.start()
+        # proc3.start()
 
         # Wait for subprocesses to finish
         proc1.join()
-        proc2.join()
-        proc3.join()
-
+        # proc2.join()
+        # proc3.join()
+        """
         self.graph.edges = set(global_edges)
 
     def get_line_coordinates(self, point, angle_deg):
@@ -170,6 +189,7 @@ class NodeVisibility(object):
             (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
             render_image[min_y:max_y, min_x:max_x] = node.id
             # cv2.putText(render_image, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
-            #            cv2.LINE_AA)
+            #             cv2.LINE_AA)
+
 
         return render_image
