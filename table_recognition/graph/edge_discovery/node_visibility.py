@@ -11,8 +11,8 @@ from table_recognition.graph.node import Node
 
 class NodeVisibility(object):
 
-    K_NEAREST_VALUES = 4
-    SAMPLING_RATE = 10
+    SAMPLING_RATE = 10  # Create ray every SAMPLING_RATE degrees
+    WINDOW_SIZE = 30    # How big is the window we sample from
 
     def __init__(self, graph):
         self.graph = graph
@@ -59,14 +59,16 @@ class NodeVisibility(object):
 
                 if right_nonzero_idx is not None:
                     right_node_id = line_values_right[right_nonzero_idx]
-                    node_degrees[degree // 20] = node_degrees.get(degree // 20, [])
-                    node_degrees[degree // 20] += [(right_node_id, right_nonzero_idx)]
+                    bin_id = degree // NodeVisibility.WINDOW_SIZE
+                    node_degrees[bin_id] = node_degrees.get(bin_id, [])
+                    node_degrees[bin_id] += [(right_node_id, right_nonzero_idx)]
 
                 if left_nonzero_idx is not None:
                     left_node_id = line_values_left[left_nonzero_idx]
                     new_degrees = 180 + degree
-                    node_degrees[new_degrees // 20] = node_degrees.get(new_degrees // 20, [])
-                    node_degrees[new_degrees // 20] += [(left_node_id, left_nonzero_idx)]
+                    bin_id = new_degrees // 30
+                    node_degrees[bin_id] = node_degrees.get(bin_id, [])
+                    node_degrees[bin_id] += [(left_node_id, left_nonzero_idx)]
 
             for key in node_degrees:
                 node_degrees[key].sort(key=lambda item: item[1], reverse=True)
