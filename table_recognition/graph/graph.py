@@ -106,7 +106,8 @@ class Graph(object):
         for edge in self.edges:
             node1_center = edge.node1.bbox["center"]
             node2_center = edge.node2.bbox["center"]
-            cv2.line(img, node1_center, node2_center, color=colors["edge"][edge.type], thickness=3)
+            if edge.type != "no-relationship":
+                cv2.line(img, node1_center, node2_center, color=colors["edge"][edge.type], thickness=3)
 
             # edge_center = [(node1_center[0] + node2_center[0]) // 2, (node1_center[1] + node2_center[1]) // 2]
             # cv2.putText(img, f"{edge.input_feature_vector[-1]:.2f}, {edge.input_feature_vector[-2]:.2f}", edge_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1,
@@ -121,8 +122,8 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
-            # cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
-            #            cv2.LINE_AA)
+            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+                        cv2.LINE_AA)
 
         # Visualize GT cells
         for node in self.ground_truth_nodes:
