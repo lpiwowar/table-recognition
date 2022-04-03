@@ -19,7 +19,7 @@ class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
                  img_path, edge_discovery_method='k-nearest-neighbors',
                  input_graph_colorer="basic-graph-colorer"):
-        Node.NODE_COUNTER = 0
+        Node.NODE_COUNTER = 1
 
         self.config = config
         self.ocr_output_path = ocr_output_path
@@ -121,13 +121,15 @@ class Graph(object):
 
             # Visualize node
             cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
-            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
-                        cv2.LINE_AA)
+            # cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+            #            cv2.LINE_AA)
 
         # Visualize GT cells
         for node in self.ground_truth_nodes:
              node_coords = node.bbox["corners"]
-             cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=8)
+             cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=3)
+             # cv2.putText(img, f"({node.start_col} {node.end_col}) ({node.start_row} {node.end_row})", (node.bbox["center"][0] - 10, node.bbox["center"][1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+             #            cv2.LINE_AA)
 
         img_name = "graph_" + self.img_path.split("/")[-1]
         cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
