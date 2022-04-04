@@ -7,6 +7,7 @@ from xml.dom import minidom
 
 from Cell import Cell
 
+
 class Table(object):
     def __init__(self, gt_path=None, img_path=None, gt_type="XML"):
         self.img_path = img_path
@@ -22,6 +23,22 @@ class Table(object):
     def __str__(self):
         return f"<Table img_path:{self.img_path} gt_path:{self.gt_path} " \
                f"table_region:{self.table_region}>"
+
+    def fix_table(self):
+        header_max_value = [int(cell.end_row) for cell in self.cells if cell.type == "header"]
+        data_min_value = [int(cell.start_row) for cell in self.cells if cell.type == "data"]
+
+        if not header_max_value or not data_min_value:
+            return
+
+        header_max_value = max(header_max_value)
+        data_min_value = min(data_min_value)
+        if not header_max_value <= data_min_value:
+            data_cells = [cell for cell in self.cells if cell.type == "data"]
+            diff = header_max_value - data_min_value
+            for data_cell in data_cells:
+                data_cell.start_row = str(diff + int(data_cell.start_row))
+                data_cell.end_row = str(diff + int(data_cell.end_row))
 
     def table_region_to_string(self):
         coords = [[str(tuple[0]), str(tuple[1])] for tuple in self.table_region]
@@ -61,7 +78,7 @@ class Table(object):
             end_col = xml_cell.attrib["end-col"]
             cell_coords = Table.xml_parse_coord(xml_cell.find("Coords").attrib["points"])
             cell = Cell(start_row, end_row, start_col, end_col, cell_coords, None)
-            # cell.type = xml_cell.attrib["type"]
+            cell.type = xml_cell.attrib["type"]
             self.cells.append(cell)
 
         return
