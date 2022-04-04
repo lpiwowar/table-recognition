@@ -87,8 +87,8 @@ class NodeVisibility(object):
         edges = {edge for edge in edges if not edge.is_reflexive()}
 
     def discover_edges(self):
-        # manager = multiprocessing.Manager()
-        # global_edges = manager.list()  # Shared variable - all discovered edges
+        manager = multiprocessing.Manager()
+        global_edges = manager.list()  # Shared variable - all discovered edges
         # global_edges = []
         # self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
 
