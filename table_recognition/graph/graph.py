@@ -19,7 +19,7 @@ class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
                  img_path, edge_discovery_method='k-nearest-neighbors',
                  input_graph_colorer="basic-graph-colorer"):
-        Node.NODE_COUNTER = 1
+        Node.NODE_COUNTER = 0
 
         self.config = config
         self.ocr_output_path = ocr_output_path

@@ -1,5 +1,5 @@
 class Node(object):
-    NODE_COUNTER = 1
+    NODE_COUNTER = 0
 
     def __init__(self, polygon_pts=None):
         self.polygon_pts = polygon_pts
