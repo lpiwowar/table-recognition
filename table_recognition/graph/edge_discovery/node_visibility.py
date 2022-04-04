@@ -40,7 +40,7 @@ class NodeVisibility(object):
                 line_values = boxes_image[line_coordinates[0], line_coordinates[1]].astype(int).squeeze()
 
                 # Find indexes that split the line into two sections
-                node_values_idxs = np.where(line_values == node.id)[0]
+                node_values_idxs = np.where(line_values == (node.id + 1))[0]
                 if node_values_idxs.size == 0:
                     # This may happen in rare cases (e.g.: when two boxes overlap each other a lot!)
                     continue
@@ -58,13 +58,13 @@ class NodeVisibility(object):
                 left_nonzero_idx = left_nonzero_idx[0] if len(left_nonzero_idx) >= 1 else None
 
                 if right_nonzero_idx is not None:
-                    right_node_id = line_values_right[right_nonzero_idx]
+                    right_node_id = line_values_right[right_nonzero_idx] - 1
                     bin_id = degree // NodeVisibility.WINDOW_SIZE
                     node_degrees[bin_id] = node_degrees.get(bin_id, [])
                     node_degrees[bin_id] += [(right_node_id, right_nonzero_idx)]
 
                 if left_nonzero_idx is not None:
-                    left_node_id = line_values_left[left_nonzero_idx]
+                    left_node_id = line_values_left[left_nonzero_idx] - 1
                     new_degrees = 180 + degree
                     bin_id = new_degrees // 30
                     node_degrees[bin_id] = node_degrees.get(bin_id, [])
@@ -87,8 +87,8 @@ class NodeVisibility(object):
         edges = {edge for edge in edges if not edge.is_reflexive()}
 
     def discover_edges(self):
-        manager = multiprocessing.Manager()
-        global_edges = manager.list()  # Shared variable - all discovered edges
+        # manager = multiprocessing.Manager()
+        # global_edges = manager.list()  # Shared variable - all discovered edges
         # global_edges = []
         # self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
 
@@ -189,8 +189,8 @@ class NodeVisibility(object):
         render_image = np.zeros((self.img_h, self.img_w))
         for node in self.graph.nodes:
             (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
-            render_image[min_y:max_y, min_x:max_x] = node.id
-            # cv2.putText(render_image, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
-            #             cv2.LINE_AA)
+            render_image[min_y:max_y, min_x:max_x] = node.id + 1   # Beware: This is here because of np.nonzero()
+            cv2.putText(render_image, f"{node.id + 1}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+                        cv2.LINE_AA)
 
         return render_image
