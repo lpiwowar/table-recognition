@@ -57,6 +57,8 @@ class OutputGraphColorer(object):
 
     def color_edges(self):
         for edge in self.graph.edges:
+            if (edge.node1.id == 77) and (edge.node2.id == 19):
+                print("hello")
             node1_logical_position = self.get_logical_position(edge.node1)
             node2_logical_position = self.get_logical_position(edge.node2)
             edge.type = OutputGraphColorer.get_edge_type(node1_logical_position, node2_logical_position)
@@ -107,17 +109,19 @@ class OutputGraphColorer(object):
 
         # Nodes are in the same column
         if node1_row_range <= node2_row_range or node2_row_range <= node1_row_range:
-            if OutputGraphColorer.nodes_horizontally_visible(node1, node2):
-                return "vertical"
-            else:
-                return "no-relationship"
+            return "vertical"
+            # if OutputGraphColorer.nodes_horizontally_visible(node1, node2):
+            #     return "vertical"
+            # else:
+            #     return "no-relationship"
 
         # Nodes are in the same row
         if node1_col_range <= node2_col_range or node2_col_range <= node1_col_range:
-            if OutputGraphColorer.nodes_vertically_visible(node1, node2):
-                return "horizontal"
-            else:
-                return "no-relationship"
+            return "horizontal"
+            # if OutputGraphColorer.nodes_vertically_visible(node1, node2):
+            #     return "horizontal"
+            # else:
+            #     return "no-relationship"
 
         return "no-relationship"
 
