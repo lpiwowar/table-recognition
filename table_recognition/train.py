@@ -63,7 +63,7 @@ class Trainer(object):
         self.train_loader = DataLoader(train_dataset, batch_size=self.conf.gpu_max_batch, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=1)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters())
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.conf.learning_rate)
         self.criterion = torch.nn.NLLLoss()
 
     def train_pipeline(self):
@@ -77,7 +77,8 @@ class Trainer(object):
             project="table-recognition",
             name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
             mode=self.conf.wandb_mode,
-            config=hyperparameters
+            config=hyperparameters,
+            learning_rate=self.conf.learning_rate
         )
 
         with wandb.init(**wandb_params):
