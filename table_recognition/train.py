@@ -68,7 +68,7 @@ class Trainer(object):
 
     def train_pipeline(self):
         hyperparameters = dict(
-            learning_rage=self.conf.learning_rate,
+            learning_rate=self.conf.learning_rate,
             batch_size=self.conf.batch_size,
             epochs=self.conf.epochs
         )
@@ -78,8 +78,6 @@ class Trainer(object):
             name=datetime.datetime.now().strftime("%Y-%m-%d-%H:%M"),
             mode=self.conf.wandb_mode,
             config=hyperparameters,
-            learning_rate=self.conf.learning_rate,
-            batch_size=self.conf.batch_size
         )
 
         with wandb.init(**wandb_params):
