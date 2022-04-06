@@ -58,9 +58,9 @@ class Trainer(object):
         table_dataset = TableDataset(self.conf)
 
         train_size = int(self.conf.train_percentage * len(table_dataset))
-        test_size = (len(table_dataset) - train_size) / 2
-        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
-        validate_dataset, test_dataset = torch.utils.data.random_split(test_dataset, [test_size // 2, test_size // 2])
+        test_size = (len(table_dataset) - train_size) // 2
+        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size * 2])
+        validate_dataset, test_dataset = torch.utils.data.random_split(test_dataset, [len(test_dataset) // 2, len(test_dataset) // 2])
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.conf.gpu_max_batch, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=1)
@@ -86,6 +86,7 @@ class Trainer(object):
         with wandb.init(**wandb_params):
             self.train()
             self.test(load_model=True, visualize=True)
+            self.validate(load_model=True, visualize=True)
 
     def train(self):
         self.conf.logger.info("Starting training ...")
@@ -263,7 +264,7 @@ class Trainer(object):
                 data.cpu()
                 torch.cuda.empty_cache()
                 if visualize:
-                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
+                    visualize_output_image(data, out_nodes, out_edges, "./glosat_valid_visualization")
                 #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
             # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
