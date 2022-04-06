@@ -103,22 +103,21 @@ class Trainer(object):
                 loss, out_nodes, out_edges = self.train_batch(data, mini_batch_counter=mini_batch_counter)
 
                 epoch_loss += [float(loss)]
-
-                # exp_out_nodes = torch.argmax(data.y, dim=1)
+                
+                exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
-                # out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
+                out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
                 out_edges = torch.argmax(torch.exp(out_edges), dim=1) 
                 
-                # epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
                 epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
 
                 data.cpu()
                 torch.cuda.empty_cache()
 
             # Calculate TRAIN metrics
-            # epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
-            epoch_accuracy_nodes_avg = 0
+            epoch_accuracy_nodes_avg = sum(epoch_accuracy_nodes) / len(epoch_accuracy_edges)
             epoch_accuracy_edges_avg = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
             self.conf.logger.info(f"TRAIN DATA => "
@@ -128,7 +127,7 @@ class Trainer(object):
 
             # Calculate TEST metrics
             metrics = self.test(visualize=False, load_model=False)
-
+            print(f"epoch_accuracy_nodes: {epoch_accuracy_nodes_avg}, accuracy_nodes: {metrics['accuracy_nodes']}")
             # Log metrics to WANDB
             wandb.log({"TRAIN DATA - loss": epoch_loss,
                        "TRAIN DATA - accuracy nodes": epoch_accuracy_nodes_avg,
@@ -150,25 +149,26 @@ class Trainer(object):
 
     def train_batch(self, data, evaluation=False, mini_batch_counter=0):
         out_nodes, out_edges = self.model(data)
-        # y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
+        y, edge_output_attr = torch.argmax(data.y, dim=1), torch.argmax(data.edge_output_attr, dim=1)
         edge_output_attr = torch.argmax(data.edge_output_attr, dim=1)
 
-        # loss_nodes = self.criterion(out_nodes, y)
+        loss_nodes = self.criterion(out_nodes, y)
         loss_edges = self.criterion(out_edges, edge_output_attr)
+        loss = loss_nodes + loss_edges
 
         if not evaluation:
             if mini_batch_counter % self.conf.batch_size == 0:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             else:
-                loss_edges.backward()
+                loss.backward()
 
             # self.optimizer.zero_grad()
             # loss_nodes.backward(retain_graph=True)
             # loss_edges.backward()
             # self.optimizer.step()
 
-        return loss_edges, None, out_edges
+        return loss, out_nodes, out_edges
 
     def test(self, load_model=False, visualize=False):
         if load_model:
@@ -191,13 +191,13 @@ class Trainer(object):
                 loss, out_nodes, out_edges = self.train_batch(data.to(self.device), evaluation=True)
                 epoch_loss += [float(loss.item())]
 
-                # exp_out_nodes = torch.argmax(data.y, dim=1)
+                exp_out_nodes = torch.argmax(data.y, dim=1)
                 exp_out_edges = torch.argmax(data.edge_output_attr, dim=1)
 
-                # out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
+                out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
                 out_edges = torch.argmax(torch.exp(out_edges), dim=1)
 
-                # epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
+                epoch_accuracy_nodes += [accuracy(exp_out_nodes, out_nodes)]
                 epoch_accuracy_edges += [accuracy(exp_out_edges, out_edges)]
                 
                 # print(torch.cuda.memory_summary(device=self.device, abbreviated=False))
@@ -205,10 +205,9 @@ class Trainer(object):
                 torch.cuda.empty_cache()
                 if visualize:
                     visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
-                #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
+                    # visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
-            # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
-            accuracy_nodes = 0
+            accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
             accuracy_edges = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
             self.conf.logger.info(f"TEST DATA => "
