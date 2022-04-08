@@ -126,7 +126,7 @@ class Trainer(object):
 
             # Calculate TEST/VALID metrics
             metrics_valid = self.test(visualize=False, load_model=False)
-            metrics_test = self.test(visualize=False, load_model=False)
+            metrics_test = self.test(visualize=False, load_model=False, datatype="test")
 
             # Log metrics to WANDB
             wandb.log({"TRAIN DATA - loss": epoch_loss,
