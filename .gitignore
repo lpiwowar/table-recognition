@@ -7,8 +7,14 @@ __pycache__
 # Local
 data_preparation
 train
-dataset
 weights
+dataset/*
+!dataset/ctdar_train_dataset.txt
+!dataset/ctdar_valid_dataset.txt
+!dataset/ctdar_test_dataset.txt
+!dataset/glosat_train_list.txt
+!dataset/glosat_valid_list.txt
+!dataset/glosat_test_list.txt
 
 # Wandb
 wandb
