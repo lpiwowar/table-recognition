@@ -1,4 +1,5 @@
 import datetime
+import os
 
 import torch
 import wandb
@@ -25,6 +26,7 @@ class Trainer(object):
         }
 
         self.train_loader = None
+        self.valid_loader = None
         self.test_loader = None
 
         self.optimizer = None
@@ -54,14 +56,9 @@ class Trainer(object):
         if self.conf.preload_model:
             self.model.load_state_dict(torch.load(self.conf.model_path))
 
-        table_dataset = TableDataset(self.conf)
-
-        train_size = int(self.conf.train_percentage * len(table_dataset))
-        test_size = len(table_dataset) - train_size
-        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
-
-        self.train_loader = DataLoader(train_dataset, batch_size=self.conf.gpu_max_batch, shuffle=True)
-        self.test_loader = DataLoader(test_dataset, batch_size=1)
+        self.train_loader = TableDataset(config=self.conf, datatype="train")
+        self.valid_loader = TableDataset(config=self.conf, datatype="valid")
+        self.test_loader = TableDataset(config=self.conf, datatype="test")
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.conf.learning_rate)
         self.criterion = torch.nn.NLLLoss()

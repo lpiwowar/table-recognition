@@ -78,6 +78,9 @@ class Config(object):
         self.gpu_max_batch = None
         self.model_name = None
         self.learning_rate = None
+        self.valid_list = None
+        self.test_list = None
+        self.train_list = None
 
         # Infer section
         self.input_data_dir = None
@@ -199,6 +202,9 @@ class Config(object):
         self.model_name = train_config["model_name"]
         self.gpu_max_batch = Config.validate_int(train_config["gpu_max_batch"], mandatory=False)
         self.learning_rate = Config.validate_float(train_config["learning_rate"], mandatory=False)
+        self.valid_list = Config.validate_file(train_config["valid_list"], mandatory=False)
+        self.test_list = Config.validate_file(train_config["test_list"], mandatory=False)
+        self.train_list = Config.validate_file(train_config["train_list"], mandatory=False)
 
     @staticmethod
     def validate_bool(bool_value, mandatory=True):
