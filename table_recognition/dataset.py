@@ -12,21 +12,21 @@ class TableDataset(Dataset):
         self.datatype = datatype
 
         with open(self.config.valid_list, "r") as f:
-            valid_file_names = f.readlines()
+            valid_file_names = f.read().splitlines()
 
         self.valid_list = [os.path.join(self.config.data_dir, valid_file_name)
                            for valid_file_name in valid_file_names]
 
         with open(self.config.test_list, "r") as f:
-            test_file_names = f.readlines()
+            test_file_names = f.read().splitlines()
 
-        self.test_list = [os.path.join(self.config.test_dir, test_file_name)
+        self.test_list = [os.path.join(self.config.data_dir, test_file_name)
                           for test_file_name in test_file_names]
 
         with open(self.config.train_list, "r") as f:
-            train_file_names = f.readlines()
+            train_file_names = f.read().splitlines()
 
-        self.train_list = [os.path.join(self.config.test_dir, train_file_name)
+        self.train_list = [os.path.join(self.config.data_dir, train_file_name)
                            for train_file_name in train_file_names]
 
         if self.datatype == "train":
@@ -43,8 +43,7 @@ class TableDataset(Dataset):
 
     def __getitem__(self, item):
         data_file = self.data_files[item]
-
-        return torch.load(os.path.join(self.config.data_dir, data_file))
+        return torch.load(os.path.join(data_file))
 
     @property
     def raw_file_names(self):
