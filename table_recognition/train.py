@@ -103,6 +103,7 @@ class Trainer(object):
         with wandb.init(**wandb_params):
             self.train()
             self.test(load_model=True, visualize=True)
+            self.validate(load_model=True, visualize=True)
 
     def train(self):
         self.conf.logger.info("Starting training ...")
@@ -280,7 +281,7 @@ class Trainer(object):
                 data.cpu()
                 torch.cuda.empty_cache()
                 if visualize:
-                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
+                    visualize_output_image(data, out_nodes, out_edges, "./glosat_valid_visualization")
                 #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
 
             # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
