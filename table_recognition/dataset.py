@@ -15,7 +15,8 @@ class TableDataset(Dataset):
 
     def __getitem__(self, item):
         data_file = self.data_files[item]
-        return torch.load(os.path.join(self.config.data_dir, data_file))
+        # return torch.load(os.path.join(self.config.data_dir, data_file)), data_file
+        return  data_file
 
 
 class TableDataset2(Dataset):

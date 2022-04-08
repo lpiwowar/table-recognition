@@ -58,13 +58,30 @@ class Trainer(object):
         table_dataset = TableDataset(self.conf)
 
         train_size = int(self.conf.train_percentage * len(table_dataset))
-        test_size = (len(table_dataset) - train_size) / 2
-        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size])
-        validate_dataset, test_dataset = torch.utils.data.random_split(test_dataset, [test_size // 2, test_size // 2])
+        test_size = (len(table_dataset) - train_size) // 2
+        train_dataset, test_dataset = torch.utils.data.random_split(table_dataset, [train_size, test_size * 2])
+        validate_dataset, test_dataset = torch.utils.data.random_split(test_dataset, [len(test_dataset) // 2, len(test_dataset) // 2])
 
-        self.train_loader = DataLoader(train_dataset, batch_size=self.conf.gpu_max_batch, shuffle=True)
+        self.train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=1)
         self.validate_loader = DataLoader(validate_dataset, batch_size=1)
+
+        print("TRAIN_LOADER:")
+        for file_name in self.train_loader:
+            print(file_name)
+        print()
+
+        print("TEST_LOADER")
+        for file_name in self.test_loader:
+            print(file_name)
+        print()
+
+        print("VALIDATE_LOADER:")
+        for file_name in self.validate_loader:
+            print(file_name)
+        print()
+
+        exit(0)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.conf.learning_rate)
         self.criterion = torch.nn.NLLLoss()
