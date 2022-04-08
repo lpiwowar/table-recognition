@@ -80,6 +80,7 @@ class Trainer(object):
         with wandb.init(**wandb_params):
             self.train()
             self.test(load_model=True, visualize=True)
+            self.test(load_model=True, visualize=True, datatype="test")
 
     def train(self):
         self.conf.logger.info("Starting training ...")
@@ -123,22 +124,28 @@ class Trainer(object):
                                   f"[accuracy edges: {epoch_accuracy_edges_avg}] "
                                   f"[loss: {epoch_loss}]")
 
-            # Calculate TEST metrics
-            metrics = self.test(visualize=False, load_model=False)
+            # Calculate TEST/VALID metrics
+            metrics_valid = self.test(visualize=False, load_model=False)
+            metrics_test = self.test(visualize=False, load_model=False)
 
             # Log metrics to WANDB
             wandb.log({"TRAIN DATA - loss": epoch_loss,
                        "TRAIN DATA - accuracy nodes": epoch_accuracy_nodes_avg,
                        "TRAIN DATA - accuracy edges": epoch_accuracy_edges_avg,
-                       "TEST DATA - accuracy nodes": metrics["accuracy_nodes"],
-                       "TEST DATA - accuracy edges": metrics["accuracy_edges"],
-                       "TEST DATA - loss": metrics["loss"]
+
+                       "VALID DATA - accuracy nodes": metrics_valid["accuracy_nodes"],
+                       "VALID DATA - accuracy edges": metrics_valid["accuracy_edges"],
+                       "VALID DATA - loss": metrics_valid["loss"],
+
+                       "TEST DATA - accuracy nodes": metrics_test["accuracy_nodes"],
+                       "TEST DATA - accuracy edges": metrics_test["accuracy_edges"],
+                       "TEST DATA - loss": metrics_test["loss"]
                        }, step=epoch)
 
             # Save model if accuracy has improved
-            if metrics["accuracy_edges"] > epoch_best_accuracy_edges:
-                self.conf.logger.info(f"Saving model with accuracy: {metrics['accuracy_edges']}")
-                epoch_best_accuracy_edges = metrics["accuracy_edges"]
+            if metrics_valid["accuracy_edges"] > epoch_best_accuracy_edges:
+                self.conf.logger.info(f"Saving model with accuracy: {metrics_valid['accuracy_edges']}")
+                epoch_best_accuracy_edges = metrics_valid["accuracy_edges"]
                 torch.save(self.model.state_dict(), self.conf.model_path)
 
             epoch_accuracy_nodes_avg = []
@@ -167,7 +174,9 @@ class Trainer(object):
 
         return loss_edges, None, out_edges
 
-    def test(self, load_model=False, visualize=False):
+    def test(self, load_model=False, visualize=False, datatype="valid"):
+        loader = self.valid_loader if datatype == "valid" else self.test_loader
+
         if load_model:
             self.conf.logger.info(f"Testing model with weights from {self.conf.model_path}.")
             self.model.load_state_dict(torch.load(self.conf.model_path))
@@ -180,7 +189,7 @@ class Trainer(object):
             epoch_accuracy_nodes = []
             epoch_accuracy_edges = []
             epoch_loss = []
-            for data in tqdm(self.test_loader, disable=self.conf.tqdm_disable):
+            for data in tqdm(loader, disable=self.conf.tqdm_disable):
                 data.to(self.device)
                 counter += 1
                 # self.conf.logger.info(f"Tested {counter}/{len(self.test_loader)} images ...")
@@ -201,14 +210,19 @@ class Trainer(object):
                 data.cpu()
                 torch.cuda.empty_cache()
                 if visualize:
-                    visualize_output_image(data, out_nodes, out_edges, self.conf.visualize_path)
-                #    visualize_input_image(data, "/home/lpiwowar/master-thesis/train/input_images_test")
+                    if datatype == "valid":
+                        visualize_path = self.conf.visualize_path_valid
+                    else:
+                        visualize_path = self.conf.visualize_path_test
+                    visualize_output_image(data, out_nodes, out_edges, visualize_path)
 
             # accuracy_nodes = sum(epoch_accuracy_nodes) / len(epoch_accuracy_nodes)
             accuracy_nodes = 0
             accuracy_edges = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
-            self.conf.logger.info(f"TEST DATA => "
+
+            conf_prefix = "VALID DATA => " if datatype == "test" else "TEST DATA => "
+            self.conf.logger.info(conf_prefix +
                                   f"[accuracy nodes: {accuracy_nodes}] "
                                   f"[accuracy edges: {accuracy_edges}] "
                                   f"[loss: {epoch_loss}]")

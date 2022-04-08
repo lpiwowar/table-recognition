@@ -71,7 +71,8 @@ class Config(object):
         self.train_gt_data_dir = None
         self.data_dir = None
         self.model_path = None
-        self.visualize_path = None
+        self.visualize_path_valid = None
+        self.visualize_path_test = None
         self.preload_model = None
         self.train_percentage = None
         self.test_percentage = None
@@ -194,7 +195,8 @@ class Config(object):
         self.batch_size = Config.validate_int(train_config["batch_size"], mandatory=False)
         self.epochs = Config.validate_int(train_config["epochs"], mandatory=False)
         self.model_path = train_config["model_path"]
-        self.visualize_path = train_config["visualize_path"]
+        self.visualize_path_valid = train_config["visualize_path_valid"]
+        self.visualize_path_test = train_config["visualize_path_test"]
         self.data_dir = Config.validate_file(train_config["data_dir"], mandatory=False)
         self.preload_model = Config.validate_file(train_config["preload_model"], mandatory=False)
         self.train_percentage = Config.validate_float(train_config["train_percentage"], mandatory=False)
