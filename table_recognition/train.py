@@ -221,7 +221,7 @@ class Trainer(object):
             accuracy_edges = sum(epoch_accuracy_edges) / len(epoch_accuracy_edges)
             epoch_loss = sum(epoch_loss) / len(epoch_loss)
 
-            conf_prefix = "VALID DATA => " if datatype == "test" else "TEST DATA => "
+            conf_prefix = "TEST DATA => " if datatype == "test" else "VALID DATA => "
             self.conf.logger.info(conf_prefix +
                                   f"[accuracy nodes: {accuracy_nodes}] "
                                   f"[accuracy edges: {accuracy_edges}] "
