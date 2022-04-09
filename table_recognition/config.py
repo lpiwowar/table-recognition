@@ -84,8 +84,10 @@ class Config(object):
         self.train_list = None
 
         # Infer section
-        self.input_data_dir = None
-
+        self.weights_path = None
+        self.model_name = None
+        self.img_path = None
+        self.ocr_output_path = None
 
         # Logger
         self.logger = None
@@ -178,7 +180,10 @@ class Config(object):
         """
 
         infer_config = config_parser["infer"]
-        self.input_data_dir = Config.validate_file(infer_config["input_data_dir"])
+        self.weights_path = Config.validate_file(infer_config["weights_path"], mandatory=False)
+        self.model_name = Config.validate_file(infer_config["model_name"], mandatory=False)
+        self.img_path = Config.validate_file(infer_config["img_path"], mandatory=False)
+        self.ocr_output_path = Config.validate_file(infer_config["ocr_output_path"], mandatory=False)
 
     def parse_train_section(self, config_parser):
         """
