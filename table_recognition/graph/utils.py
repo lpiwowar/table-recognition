@@ -145,7 +145,7 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     }
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.cpu().numpy())]
 
-    img = cv2.imread(data.img_path[0])
+    img = cv2.imread(data.img_path)
     for node_idx, node_attributes in enumerate(data.node_image_position):
         cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
                    thickness=-1)
@@ -161,7 +161,7 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
         }
         cv2.line(img, position_u, position_v, color=color_to_rgb[c], thickness=3)
 
-    img_path = os.path.join(visualize_path, data.img_path[0].split("/")[-1])
+    img_path = os.path.join(visualize_path, data.img_path.split("/")[-1])
     cv2.imwrite(img_path, img)
     # cv2.imshow("visualize output", img)
     # cv2.waitKey(0)
