@@ -21,6 +21,12 @@ class Node(object):
     def __repr__(self):
         return f"<Node: rtree_id={self.id}>"
 
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.__repr__())
+
     def calculate_node_bbox(self):
         x_coords = [x for x, _ in self.polygon_pts]
         y_coords = [y for _, y in self.polygon_pts]

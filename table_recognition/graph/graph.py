@@ -17,8 +17,8 @@ from table_recognition.graph.edge_discovery import NodeVisibility
 
 class Graph(object):
     def __init__(self, config, ocr_output_path, ground_truth_path,
-                 img_path, edge_discovery_method='k-nearest-neighbors',
-                 input_graph_colorer="basic-graph-colorer"):
+                 img_path, edge_discovery_method='node-visibility',
+                 input_graph_colorer="geometry-graph-colorer"):
         Node.NODE_COUNTER = 0
 
         self.config = config
@@ -169,6 +169,8 @@ class Graph(object):
             node_bounding_box[node.id] = node.bbox["corners"]
         node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
 
+        node_image_regions = None
+        edge_image_regions = None
         if self.config.visual_features:
             # Cut out regions from image
             img = cv2.imread(self.img_path)
@@ -232,6 +234,102 @@ class Graph(object):
                     node_image_regions=node_image_regions,    # Cutted out regions from images (nodes)
                     edge_image_regions=edge_image_regions     # Cutted out regions from images (edges)
                     )
+
+        filename = os.path.basename(self.img_path).split(".")[0]
+        torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))
+
+    def dump_infer(self):
+        # Collect node input attributes
+        nodes = {}
+        for node in self.nodes:
+            nodes[node.id] = node.input_feature_vector
+        x = torch.tensor([nodes[key] for key in sorted(nodes.keys())])
+
+        # Collect edges
+        nodes1 = [edge.node1.id for edge in self.edges]
+        nodes2 = [edge.node2.id for edge in self.edges]
+        edge_index = torch.tensor([nodes1, nodes2])
+
+        # Collect edge input and output attributes
+        edge_attr = torch.tensor([edge.input_feature_vector for edge in self.edges])
+
+        # Collect positions of nodes in image
+        visualize_position = {}
+        for node in self.nodes:
+            visualize_position[node.id] = node.bbox["center"]
+        visualize_position = torch.tensor([visualize_position[key] for key in sorted(visualize_position.keys())])
+
+        # Collect bounding boxes of nodes in image
+        node_bounding_box = {}
+        for node in self.nodes:
+            node_bounding_box[node.id] = node.bbox["corners"]
+        node_bounding_box = torch.tensor([node_bounding_box[key] for key in sorted(node_bounding_box.keys())])
+
+        node_image_regions = None
+        edge_image_regions = None
+        if self.config.visual_features:
+            # Cut out regions from image
+            img = cv2.imread(self.img_path)
+            img_h, img_w, img_c = img.shape
+            node_cut_padding = 20
+            node_image_regions = {}
+            for node in self.nodes:
+                (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
+
+                min_x = max(min_x - node_cut_padding, 0)
+                max_x = min(max_x + node_cut_padding, img_w)
+                min_y = max(min_y - node_cut_padding, 0)
+                max_y = min(max_y + node_cut_padding, img_h)
+
+                img_region = img[min_y:max_y, min_x:max_x, :]
+                node_image_regions[node.id] = torch.tensor(img_region)
+            node_image_regions = [roi_align_single_image(node_image_regions[key], (10, 10))
+                                  for key in sorted(node_image_regions.keys())]
+            node_image_regions = torch.stack(node_image_regions)
+
+            edge_cut_padding = 20
+            edge_image_regions = []
+            for edge in self.edges:
+                (node1_min_x, node1_min_y, node1_max_x, node1_max_y) = edge.node1.bbox["rtree"]
+                (node2_min_x, node2_min_y, node2_max_x, node2_max_y) = edge.node2.bbox["rtree"]
+
+                # Find bounding box of the two bounding boxes
+                min_x = min(node1_min_x, node2_min_x)
+                max_x = max(node1_max_x, node2_max_x)
+                min_y = min(node1_min_y, node2_min_y)
+                max_y = max(node1_max_y, node2_max_y)
+
+                # Add padding
+                min_x = max(min_x - edge_cut_padding, 0)
+                max_x = min(max_x + edge_cut_padding, img_w)
+                min_y = max(min_y - edge_cut_padding, 0)
+                max_y = min(max_y + edge_cut_padding, img_h)
+
+                img_region = img[min_y:max_y, min_x:max_x, :]
+                edge_image_regions += [roi_align_single_image(torch.tensor(img_region), (16, 16))]
+            edge_image_regions = torch.stack(edge_image_regions)
+
+        data = Data(
+            # --- Input attributes --- #
+            x=x,  # Nodes input attributes
+            edge_index=edge_index,  # Definition of edges
+            edge_attr=edge_attr,  # Edge input attributes
+
+            # --- Expected output attributes --- #
+            y=None,  # Nodes output attributes
+            edge_output_attr=None,  # Edge output attributes
+
+            # --- Output of model --- #
+            output_edges=None,
+            output_nodes=None,
+
+            # --- Auxiliary attributes --- #
+            node_image_position=visualize_position,  # Position of nodes in image
+            node_bounding_box=node_bounding_box,  # Bounding box of node
+            img_path=self.img_path,  # Path to image
+            node_image_regions=node_image_regions,  # Cutted out regions from images (nodes)
+            edge_image_regions=edge_image_regions  # Cutted out regions from images (edges)
+        )
 
         filename = os.path.basename(self.img_path).split(".")[0]
         torch.save(data, os.path.join(self.config.prepared_data_dir, f'{filename}.pt'))

@@ -180,8 +180,8 @@ class Config(object):
         """
 
         infer_config = config_parser["infer"]
-        self.weights_path = Config.validate_file(infer_config["weights_path"], mandatory=False)
-        self.model_name = Config.validate_file(infer_config["model_name"], mandatory=False)
+        self.weights_path = Config.validate_file(infer_config["weights_path"])
+        self.model_name = infer_config["model_name"]
         self.img_path = Config.validate_file(infer_config["img_path"], mandatory=False)
         self.ocr_output_path = Config.validate_file(infer_config["ocr_output_path"], mandatory=False)
 

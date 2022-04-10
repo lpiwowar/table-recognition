@@ -57,8 +57,6 @@ class OutputGraphColorer(object):
 
     def color_edges(self):
         for edge in self.graph.edges:
-            if (edge.node1.id == 77) and (edge.node2.id == 19):
-                print("hello")
             node1_logical_position = self.get_logical_position(edge.node1)
             node2_logical_position = self.get_logical_position(edge.node2)
             edge.type = OutputGraphColorer.get_edge_type(node1_logical_position, node2_logical_position)

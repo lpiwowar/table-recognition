@@ -15,7 +15,7 @@ class Edge(object):
         return hash(self.__repr__())
 
     def __repr__(self):
-        return f"<Edge: node1={self.node1} node2={self.node2}"
+        return f"<Edge: node1={self.node1} node2={self.node2}>"
 
     def is_reflexive(self):
         return self.node1 == self.node2

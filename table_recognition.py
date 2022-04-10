@@ -3,6 +3,7 @@ import argparse
 from table_recognition.config import Config
 from table_recognition.data_preparation import data_preparation
 from table_recognition import Trainer
+from table_recognition import Infer
 
 
 def check_arguments(arg):
@@ -43,3 +44,5 @@ if __name__ == "__main__":
         data_preparation(config)
     elif args.train:
         Trainer(config)
+    elif args.infer:
+        Infer(config)
