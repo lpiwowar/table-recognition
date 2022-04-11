@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+import networkx as nx
 import torch
 from tqdm import tqdm
 from scipy.spatial import ConvexHull
@@ -11,6 +12,7 @@ from table_recognition.graph import Graph
 from table_recognition.models import SimpleModel
 from table_recognition.models import NodeEdgeMLPEnding
 from table_recognition.models import VisualNodeEdgeMLPEnding
+
 
 class Infer(object):
     def __init__(self, config):
@@ -40,7 +42,7 @@ class Infer(object):
         self.config.logger.info("Preparing graph representation of the input tables ...")
         self.config.logger.info(f"Storing prepared graph representations to {self.prepared_data_dir}")
         self.config.logger.info(f"Visualization of output graph stored in {self.visualize_path}")
-        for image_name, ocr_output in tqdm(zip(images[:10], ocr_output_path[:10])):
+        for image_name, ocr_output in tqdm(zip(images, ocr_output_path)):
             graph = Graph(
                 config=self.config,
                 ocr_output_path=os.path.join(self.config.ocr_output_path, ocr_output),
@@ -86,94 +88,84 @@ class Graph2Text(object):
         self.graph = graph
 
         self.remove_no_relationship()
-        self.remove_symmetrical_edges()
         self.merge_cell()
+        self.remove_symmetrical_edges()
+        self.remove_transitive_edges()
 
     def remove_no_relationship(self):
         self.graph.edges = [edge for edge in self.graph.edges
                             if edge.type != "no-relationship"]
-        # for edge in self.graph.edges:
-        #     if edge.type == "no-relationship":
-        #         self.graph.edges.remove(edge)
 
     def remove_symmetrical_edges(self):
-        to_remove = []
+        to_keep = []
         for edge in self.graph.edges:
-            if (edge.node1.id, edge.node2.id) not in to_remove and \
-               (edge.node2.id, edge.node1.id) not in to_remove:
-                to_remove += [(edge.node1.id, edge.node2.id)]
+            # Do not keep reflexive edges
+            if edge.node1.id == edge.node2.id:
+                continue
+
+            if edge.type == "horizontal":
+                if edge.node2.bbox["center"][1] >= edge.node1.bbox["center"][1]:
+                    if (edge.node2.id, edge.node1.id) not in to_keep:
+                        to_keep += [(edge.node1.id, edge.node2.id)]
+            elif edge.type == "vertical":
+                if edge.node2.bbox["center"][0] >= edge.node1.bbox["center"][0]:
+                    if (edge.node2.id, edge.node1.id) not in to_keep:
+                        to_keep += [(edge.node1.id, edge.node2.id)]
+            else:
+                if (edge.node2.id, edge.node1.id) not in to_keep:
+                    to_keep += [(edge.node1.id, edge.node2.id)]
 
         self.graph.edges = [edge for edge in self.graph.edges
-                            if (edge.node1.id, edge.node2.id) in to_remove]
-        # for edge in self.graph.edges:
-        #     if (edge.node1.id, edge.node2.id) in to_remove:
-        #         self.graph.edges.remove(edge)
-
+                            if (edge.node1.id, edge.node2.id) in to_keep]
+        
     def merge_cell(self):
         cell_edges = [edge for edge in self.graph.edges if edge.type == "cell"]
-        # Remove cell edges from the graph
-        # for edge in cell_edges:
-        #     if edge in self.graph.edges:
-        #         self.graph.edges.remove(edge)
+        # print(cell_edges)
 
         nodes_to_remove = []
         for cell_edge in cell_edges:
+            if cell_edge.node1.id == cell_edge.node2.id:
+                continue
+
             cell_node1 = cell_edge.node1
             cell_node2 = cell_edge.node2
             nodes_to_remove += [cell_node2.id]
 
             for edge in self.graph.edges:
                 if edge.node1.id == cell_node2.id:
-                    # node1_points = edge.node1.polygon_pts
-                    # cell_node1 = cell_node1
-                    # pts = node1_points + cell_node1
-                    # hull = ConvexHull(pts)
-
                     edge.node1 = cell_node1
-                    # edge.node1.polygon_pts = hull
                 elif edge.node2.id == cell_node2.id:
-                    # node2_points = edge.node2.polygon_pts
-                    # cell_node2 = cell_node2.polygon_pts
-                    # pts = node2_points + cell_node2
-                    # hull = ConvexHull(pts)
-
                     edge.node2 = cell_node1
-                    # edge.node2.polygon_pts = hull
-
-            # if node2 in self.graph.nodes:
-            #     self.graph.nodes.remove(node2)
-
-            # self.graph.edges.remove(cell_edge)
 
         for edge in cell_edges:
-             if edge in self.graph.edges:
-                 self.graph.edges.remove(edge)
+            if edge in self.graph.edges:
+                self.graph.edges.remove(edge)
 
-        print(nodes_to_remove)
         self.graph.nodes = [node for node in self.graph.nodes
                             if node.id not in nodes_to_remove]
-        # for node in nodes_to_remove:
-        #     if node in self.graph.nodes:
-        #       self.graph.nodes.remove(node)
 
-        # Remove reflexive cell edges
-        # for cell_edge in cell_edges:
-        #     for edge in cell_edges:
-        #         if cell_edge.node1
-        """
-        node1 = cell_edge.node1
-        node2 = cell_edge.node2
+    def remove_transitive_edges(self):
+        horizontal_edges = [edge for edge in self.graph.edges
+                            if edge.type == "horizontal"]
+        vertical_edges = [edge for edge in self.graph.edges
+                          if edge.type == "vertical"]
 
-        node2_edges = [edge for edge in self.graph.edges
-                       if edge.node1.id == node2.id and edge.type != "cell"]
-        for edge in node2_edges:
-            edge.node1.id = node1.id
+        horizontal_edges_ids = list(set([(edge.node1.id, edge.node2.id) for edge in horizontal_edges]))
+        vertical_edges_ids = list(set([(edge.node1.id, edge.node2.id) for edge in vertical_edges]))
 
-        if node2 in self.graph.nodes:
-            self.graph.nodes.remove(node2)
+        horizontal_graph = nx.DiGraph(horizontal_edges_ids)
+        vertical_graph = nx.DiGraph(vertical_edges_ids)
 
-        if cell_edge in self.graph.edges:
-            self.graph.edges.remove(cell_edge)
+        # print(list(nx.simple_cycles(vertical_graph)))
+        horizontal_graph_list = list(nx.DiGraph(horizontal_edges_ids).edges)
+        vertical_graph_list = list(nx.DiGraph(vertical_edges_ids).edges)
 
-        cell_edges = [edge for edge in cell_edges if edge.node2.id == node2.id]
-        """
+        reduced_horizontal_graph = list(nx.transitive_reduction(horizontal_graph).edges)
+        reduced_vertical_graph = list(nx.transitive_reduction(vertical_graph).edges)
+
+        horizontal_to_remove = set(horizontal_graph_list).difference(set(reduced_horizontal_graph))
+        vertical_to_remove = set(vertical_graph_list).difference(set(reduced_vertical_graph))
+        to_remove = horizontal_to_remove.union(vertical_to_remove)
+
+        self.graph.edges = [edge for edge in self.graph.edges
+                            if (edge.node1.id, edge.node2.id) not in to_remove]
