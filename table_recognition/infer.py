@@ -4,10 +4,7 @@ import tempfile
 import networkx as nx
 import torch
 from tqdm import tqdm
-from scipy.spatial import ConvexHull
 
-from table_recognition.dataset import TableDataset
-from table_recognition.graph.utils import visualize_output_image
 from table_recognition.graph import Graph
 from table_recognition.models import SimpleModel
 from table_recognition.models import NodeEdgeMLPEnding
@@ -42,7 +39,7 @@ class Infer(object):
         self.config.logger.info("Preparing graph representation of the input tables ...")
         self.config.logger.info(f"Storing prepared graph representations to {self.prepared_data_dir}")
         self.config.logger.info(f"Visualization of output graph stored in {self.visualize_path}")
-        for image_name, ocr_output in tqdm(zip(images, ocr_output_path)):
+        for image_name, ocr_output in tqdm(zip(images[5:6], ocr_output_path[5:6])):
             graph = Graph(
                 config=self.config,
                 ocr_output_path=os.path.join(self.config.ocr_output_path, ocr_output),
@@ -83,6 +80,78 @@ class Infer(object):
             graph.visualize()
 
 
+class GrapOptimModel(torch.nn.Module):
+    def __init__(self, graph):
+        super().__init__()
+        self.graph = graph
+        self.node_positions = {}
+        for node in graph.nodes:
+            self.node_positions[node.id] = [torch.nn.Parameter(torch.tensor(node.x)),
+                                            torch.nn.Parameter(torch.tensor(node.y))]
+
+    def forward(self):
+        horizontal_error = []
+        for edge in self.graph.edges:
+            node1_x = self.node_positions[edge.node1.id][0]
+            node2_x = self.node_positions[edge.node2.id][0]
+            horizontal_error += [node1_x - node2_x]
+
+        horizontal_error = torch.sum(torch.tensor(horizontal_error))
+        return horizontal_error ** 2
+
+
+class GraphOptimizer(torch.nn.Module):
+    """Custom Pytorch model for gradient optimization.
+    """
+
+    def __init__(self, graph):
+        super().__init__()
+        self.optimizer = torch.optim.Adam(model.parameters())
+
+        for _ in range(10000):
+            self.optimizer.zero_grad()
+
+            output = self.forward()
+            loss = self.my_loss(output)
+            loss.backward()
+
+            self.optimizer.step()
+
+    def forward(self):
+        horizontal_difference = []
+        for edge in self.graph.edges:
+            horizontal_difference += [[edge.node1.x, edge.node2.x]]
+
+        horizontal_difference = torch.tensor(horizontal_difference)
+        horizontal_error = torch.sum(horizontal_difference[0] - horizontal_difference[1]) ** 2
+
+        horizontal_decimal_error = []
+        for edge in self.graph.edges:
+            horizontal_decimal_error += [torch.floor(edge.node1.x) - edge.node1.x,
+                                         torch.floor(edge.node2.x) - edge.node2.x]
+        horizontal_decimal_error = torch.sum(torch.tensor(horizontal_decimal_error)) ** 2
+
+        return horizontal_error + horizontal_decimal_error
+
+    def my_loss(self, output):
+        return output ** 2
+
+"""
+if __name__ == "__main__":
+    model = Model()
+    optimizer = torch.optim.Adam(model.parameters())
+
+    for x in range(100000):
+        optimizer.zero_grad()
+
+        output = model()
+        loss = my_loss(output)
+        loss.backward()
+        print(f"loss: {loss}, x1: {model.x1}, x2: {model.x2}, x3: {model.x3}, x4: {model.x4}")
+
+        optimizer.step()
+"""
+
 class Graph2Text(object):
     def __init__(self, graph):
         self.graph = graph
@@ -91,6 +160,7 @@ class Graph2Text(object):
         self.merge_cell()
         self.remove_symmetrical_edges()
         self.remove_transitive_edges()
+        self.nodes_to_grid()
 
     def remove_no_relationship(self):
         self.graph.edges = [edge for edge in self.graph.edges
@@ -117,7 +187,7 @@ class Graph2Text(object):
 
         self.graph.edges = [edge for edge in self.graph.edges
                             if (edge.node1.id, edge.node2.id) in to_keep]
-        
+
     def merge_cell(self):
         cell_edges = [edge for edge in self.graph.edges if edge.type == "cell"]
         # print(cell_edges)
@@ -169,3 +239,6 @@ class Graph2Text(object):
 
         self.graph.edges = [edge for edge in self.graph.edges
                             if (edge.node1.id, edge.node2.id) not in to_remove]
+
+    def nodes_to_grid(self):
+        grap_optimizer = GraphOptimizer(self.graph)

@@ -1,3 +1,5 @@
+import torch
+
 class Node(object):
     NODE_COUNTER = 0
 
@@ -5,6 +7,10 @@ class Node(object):
         self.polygon_pts = polygon_pts
         if self.polygon_pts:
             self.bbox = self.calculate_node_bbox()
+
+        # DO NOT USE!!!
+        # self.x = torch.nn.Parameter(torch.tensor(self.bbox["center"][0]))
+        # self.y = torch.nn.Parameter(torch.tensor(self.bbox["center"][1]))
 
         self.id = Node.NODE_COUNTER
         Node.NODE_COUNTER += 1
