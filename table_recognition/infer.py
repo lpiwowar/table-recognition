@@ -39,6 +39,9 @@ class Infer(object):
         self.config.logger.info("Preparing graph representation of the input tables ...")
         self.config.logger.info(f"Storing prepared graph representations to {self.prepared_data_dir}")
         self.config.logger.info(f"Visualization of output graph stored in {self.visualize_path}")
+        counter = 0
+        # idx 35: ctdar_439
+        # idx 5: ctdar_047
         for image_name, ocr_output in tqdm(zip(images[5:6], ocr_output_path[5:6])):
             graph = Graph(
                 config=self.config,
@@ -84,73 +87,47 @@ class GrapOptimModel(torch.nn.Module):
     def __init__(self, graph):
         super().__init__()
         self.graph = graph
-        self.node_positions = {}
+        self.node_positions_x = torch.nn.ParameterDict({})
+        self.node_positions_y = torch.nn.ParameterDict({})
         for node in graph.nodes:
-            self.node_positions[node.id] = [torch.nn.Parameter(torch.tensor(node.x)),
-                                            torch.nn.Parameter(torch.tensor(node.y))]
+            self.node_positions_x[str(node.id)] = torch.nn.Parameter(torch.tensor(float(node.bbox["center"][0])))
+            self.node_positions_y[str(node.id)] = torch.nn.Parameter(torch.tensor(float(node.bbox["center"][1])))
 
     def forward(self):
-        horizontal_error = []
+        horizontal_error = torch.tensor(0.)
         for edge in self.graph.edges:
-            node1_x = self.node_positions[edge.node1.id][0]
-            node2_x = self.node_positions[edge.node2.id][0]
-            horizontal_error += [node1_x - node2_x]
+            if edge.type != "horizontal":
+                continue
+            node1_x = self.node_positions_x[str(edge.node1.id)]
+            node2_x = self.node_positions_x[str(edge.node2.id)]
+            horizontal_error += torch.abs((node1_x - node2_x)) # ** 2
 
-        horizontal_error = torch.sum(torch.tensor(horizontal_error))
-        return horizontal_error ** 2
-
-
-class GraphOptimizer(torch.nn.Module):
-    """Custom Pytorch model for gradient optimization.
-    """
-
-    def __init__(self, graph):
-        super().__init__()
-        self.optimizer = torch.optim.Adam(model.parameters())
-
-        for _ in range(10000):
-            self.optimizer.zero_grad()
-
-            output = self.forward()
-            loss = self.my_loss(output)
-            loss.backward()
-
-            self.optimizer.step()
-
-    def forward(self):
-        horizontal_difference = []
+        vertical_error = torch.tensor(0.)
         for edge in self.graph.edges:
-            horizontal_difference += [[edge.node1.x, edge.node2.x]]
+            if edge.type != "vertical":
+                continue
+            node1_y = self.node_positions_y[str(edge.node1.id)]
+            node2_y = self.node_positions_y[str(edge.node2.id)]
+            vertical_error += torch.abs((node1_y - node2_y))  # ** 2
 
-        horizontal_difference = torch.tensor(horizontal_difference)
-        horizontal_error = torch.sum(horizontal_difference[0] - horizontal_difference[1]) ** 2
+            # horizontal_error += (node1_x - node2_x) ** 2
+        # horizontal_error = torch.sum(torch.tensor(horizontal_error))
+        """
+        horizontal_decimal_error = torch.tensor(0.)
+        for node in self.graph.nodes:
+            node1_x = self.node_positions_x[str(node.id)]
+            horizontal_decimal_error += (torch.floor(node1_x) - node1_x) ** 2
+            # horizontal_decimal_error += [(torch.floor(node1_x) - node1_x) ** 2]
+        # horizontal_decimal_error = torch.sum(torch.tensor(horizontal_decimal_error))
+        """
 
-        horizontal_decimal_error = []
-        for edge in self.graph.edges:
-            horizontal_decimal_error += [torch.floor(edge.node1.x) - edge.node1.x,
-                                         torch.floor(edge.node2.x) - edge.node2.x]
-        horizontal_decimal_error = torch.sum(torch.tensor(horizontal_decimal_error)) ** 2
+        # return horizontal_error + horizontal_decimal_error
+        return horizontal_error + vertical_error
 
-        return horizontal_error + horizontal_decimal_error
-
-    def my_loss(self, output):
+    @staticmethod
+    def loss(output):
         return output ** 2
 
-"""
-if __name__ == "__main__":
-    model = Model()
-    optimizer = torch.optim.Adam(model.parameters())
-
-    for x in range(100000):
-        optimizer.zero_grad()
-
-        output = model()
-        loss = my_loss(output)
-        loss.backward()
-        print(f"loss: {loss}, x1: {model.x1}, x2: {model.x2}, x3: {model.x3}, x4: {model.x4}")
-
-        optimizer.step()
-"""
 
 class Graph2Text(object):
     def __init__(self, graph):
@@ -160,6 +137,10 @@ class Graph2Text(object):
         self.merge_cell()
         self.remove_symmetrical_edges()
         self.remove_transitive_edges()
+
+        for node in self.graph.nodes:
+            node.x = node.bbox["center"][0]
+            node.y = node.bbox["center"][1]
         self.nodes_to_grid()
 
     def remove_no_relationship(self):
@@ -241,4 +222,31 @@ class Graph2Text(object):
                             if (edge.node1.id, edge.node2.id) not in to_remove]
 
     def nodes_to_grid(self):
-        grap_optimizer = GraphOptimizer(self.graph)
+        model = GrapOptimModel(self.graph)
+        # TODO: Zkus SGD + Vyzkouset zacit s vysokym LR a pak postupne snizovat
+        optimizer = torch.optim.Adam(model.parameters(), lr=1)
+        print("before:")
+        print(model.node_positions_x)
+        for _ in range(10000):
+            optimizer.zero_grad()
+
+            output = model()
+            loss = GrapOptimModel.loss(output)
+            print(loss)
+            loss.backward()
+            optimizer.step()
+
+        print("after")
+        print(model.node_positions_x)
+
+        for node in self.graph.nodes:
+            node.x = int(torch.floor(model.node_positions_x[str(node.id)]))
+            node.y = int(torch.floor(model.node_positions_y[str(node.id)]))
+            # node.y = int(node.bbox["center"][1
+
+        for edge in self.graph.edges:
+            edge.node1.x = int(torch.floor(model.node_positions_x[str(edge.node1.id)]))
+            edge.node1.y = int(torch.floor(model.node_positions_y[str(edge.node1.id)]))
+
+            edge.node2.x = int(torch.floor(model.node_positions_x[str(edge.node2.id)]))
+            edge.node2.y = int(torch.floor(model.node_positions_y[str(edge.node2.id)]))
