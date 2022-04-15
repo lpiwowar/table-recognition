@@ -9,8 +9,8 @@ class Node(object):
         if self.polygon_pts:
             self.bbox = self.calculate_node_bbox()
 
-        self.x = None
-        self.y = None
+        self.x = self.bbox["center"][0]
+        self.y = self.bbox["center"][1]
 
         self.id = Node.NODE_COUNTER
         Node.NODE_COUNTER += 1

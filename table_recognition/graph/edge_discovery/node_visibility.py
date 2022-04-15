@@ -87,40 +87,49 @@ class NodeVisibility(object):
         edges = {edge for edge in edges if not edge.is_reflexive()}
 
     def discover_edges(self):
-        manager = multiprocessing.Manager()
-        global_edges = manager.list()  # Shared variable - all discovered edges
-        # global_edges = []
-        # self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
+        PROCESSING = "seq"
+        if PROCESSING == "seq":
+            global_edges = []
+            self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
+        else:
+            manager = multiprocessing.Manager()
+            global_edges = manager.list()  # Shared variable - all discovered edges
 
-        # Define jobs for each subprocess
-        proc1_start = 0
-        proc1_end = len(self.graph.nodes) // 3
-        proc2_start = (len(self.graph.nodes) // 3) + 1
-        proc2_end = 2 * (len(self.graph.nodes) // 3)
-        proc3_start = (2 * (len(self.graph.nodes) // 3)) + 1
-        proc3_end = len(self.graph.nodes)
+            # Define jobs for each subprocess
+            proc1_start = 0
+            proc1_end = len(self.graph.nodes) // 3
+            proc2_start = (len(self.graph.nodes) // 3) + 1
+            proc2_end = 2 * (len(self.graph.nodes) // 3)
+            proc3_start = (2 * (len(self.graph.nodes) // 3)) + 1
+            proc3_end = len(self.graph.nodes)
 
-        # Define subprocesses
-        proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc1_start,
-                                                                                     proc1_end))
-        # proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, 0,
-        #                                                                               len(self.graph.nodes)))
-        proc2 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc2_start,
-                                                                                     proc2_end))
-        proc3 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc3_start,
-                                                                                     proc3_end))
+            # Define subprocesses
+            proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc1_start,
+                                                                                         proc1_end))
+            # proc1 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, 0,
+            #                                                                              len(self.graph.nodes)))
+            proc2 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc2_start,
+                                                                                         proc2_end))
+            proc3 = multiprocessing.Process(target=self.discover_edges_subprocess, args=(global_edges, proc3_start,
+                                                                                         proc3_end))
 
-        # Start subprocesses
-        proc1.start()
-        proc2.start()
-        proc3.start()
+            # Start subprocesses
+            proc1.start()
+            proc2.start()
+            proc3.start()
 
-        # Wait for subprocesses to finish
-        proc1.join()
-        proc2.join()
-        proc3.join()
+            # Wait for subprocesses to finish
+            proc1.join()
+            proc2.join()
+            proc3.join()
 
-        self.graph.edges = set(global_edges)
+        self.graph.edges = list(set(global_edges))
+        id_to_nodes = {node.id: node for node in self.graph.nodes}
+        for edge in self.graph.edges:
+            edge.node1 = id_to_nodes[edge.node1.id]
+            edge.node2 = id_to_nodes[edge.node2.id]
+
+
 
     def get_line_coordinates(self, point, angle_deg):
         assert 0 <= point[0] <= self.img_w, "ERROR: Coordinates out of image"

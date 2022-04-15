@@ -25,6 +25,7 @@ class Infer(object):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = self.available_models[self.config.model_name]()
         self.model.load_state_dict(torch.load(self.config.weights_path, map_location=torch.device(self.device)))
+        self.model.eval()
 
         self.prepare_input()
 
@@ -42,7 +43,12 @@ class Infer(object):
         counter = 0
         # idx 35: ctdar_439
         # idx 5: ctdar_047
-        for image_name, ocr_output in tqdm(zip(images[5:6], ocr_output_path[5:6])):
+        # idx 21: simple table
+        # idx 61: super simple 759?
+        for image_name, ocr_output in tqdm(zip(images[36:37], ocr_output_path[36:37])):
+            # print(f"{counter} {image_name}")
+            # counter += 1
+            # continue
             graph = Graph(
                 config=self.config,
                 ocr_output_path=os.path.join(self.config.ocr_output_path, ocr_output),
@@ -52,6 +58,7 @@ class Infer(object):
 
             graph.initialize()
             graph.color_input()
+
             graph.dump_infer()
 
             name = image_name.split(".")[0]
@@ -78,9 +85,21 @@ class Infer(object):
                 edge_type = int(edge_type.numpy())
                 id_to_edge[(id1, id2)].type = edge_num_to_name[edge_type]
 
+
             graph2text = Graph2Text(graph)
 
             graph.visualize()
+
+
+class Graph2Text_2(object):
+    def __init__(self):
+        self.nodes_edges = {}
+
+    def populate_nodes_edges(self):
+        pass
+
+    def graph_gridification(self, current_node, visited_nodes, previous_nodes_position, traversed_edge_type):
+        pass
 
 
 class GrapOptimModel(torch.nn.Module):
@@ -100,7 +119,7 @@ class GrapOptimModel(torch.nn.Module):
                 continue
             node1_x = self.node_positions_x[str(edge.node1.id)]
             node2_x = self.node_positions_x[str(edge.node2.id)]
-            horizontal_error += torch.abs((node1_x - node2_x)) # ** 2
+            horizontal_error += torch.abs((node1_x - node2_x))  # ** 2
 
         vertical_error = torch.tensor(0.)
         for edge in self.graph.edges:
@@ -132,16 +151,46 @@ class GrapOptimModel(torch.nn.Module):
 class Graph2Text(object):
     def __init__(self, graph):
         self.graph = graph
+        self.nodes_edges = {}
 
         self.remove_no_relationship()
         self.merge_cell()
         self.remove_symmetrical_edges()
         self.remove_transitive_edges()
 
-        for node in self.graph.nodes:
-            node.x = node.bbox["center"][0]
-            node.y = node.bbox["center"][1]
-        self.nodes_to_grid()
+        print(f"{len(self.graph.edges)}")
+        self.graph.edges = list(set(self.graph.edges))
+        print(f"{len(self.graph.edges)}")
+        self.vertical_edges = [edge for edge in self.graph.edges if edge.type == "vertical"]
+        self.horizontal_edges = [edge for edge in self.graph.edges if edge.type == "horizontal"]
+
+        while self.vertical_edges:
+            self.gridify_graph(self.vertical_edges[0].node1,
+                               (self.vertical_edges[0].node1.x, self.vertical_edges[0].node1.y),
+                               self.vertical_edges,
+                               "vertical")
+
+        while self.horizontal_edges:
+            self.gridify_graph(self.horizontal_edges[0].node1,
+                               (self.horizontal_edges[0].node1.x, self.horizontal_edges[0].node1.y),
+                               self.horizontal_edges,
+                               "horizontal")
+
+    def gridify_graph(self, current_node, previous_node_position, unvisited_edges, type):
+        if type == "vertical":
+            current_node.y = previous_node_position[1]
+        elif type == "horizontal":
+            current_node.x = previous_node_position[0]
+
+        available_edges = [edge for edge in unvisited_edges
+                           if edge.node1.id == current_node.id or edge.node2.id == current_node.id]
+        for available_edge in available_edges:
+            unvisited_edges.remove(available_edge)
+            next_node = available_edge.node1 if available_edge.node1.id != current_node.id else available_edge.node2
+            self.gridify_graph(next_node,
+                               (current_node.x, current_node.y),
+                               unvisited_edges,
+                               type)
 
     def remove_no_relationship(self):
         self.graph.edges = [edge for edge in self.graph.edges
@@ -225,28 +274,29 @@ class Graph2Text(object):
         model = GrapOptimModel(self.graph)
         # TODO: Zkus SGD + Vyzkouset zacit s vysokym LR a pak postupne snizovat
         optimizer = torch.optim.Adam(model.parameters(), lr=1)
-        print("before:")
-        print(model.node_positions_x)
         for _ in range(10000):
             optimizer.zero_grad()
 
             output = model()
             loss = GrapOptimModel.loss(output)
-            print(loss)
             loss.backward()
             optimizer.step()
-
-        print("after")
-        print(model.node_positions_x)
 
         for node in self.graph.nodes:
             node.x = int(torch.floor(model.node_positions_x[str(node.id)]))
             node.y = int(torch.floor(model.node_positions_y[str(node.id)]))
-            # node.y = int(node.bbox["center"][1
-
+        """
+        for edge in self.graph.edges:
+            print("----")
+            print(f"node_id: {edge.node1.id} node.x: {edge.node1.x} node.y: {edge.node1.y}")
+            print(f"node_id: {edge.node2.id} node.x: {edge.node2.x} node.y: {edge.node2.y}")
+            print("----")
+        """
+        """
         for edge in self.graph.edges:
             edge.node1.x = int(torch.floor(model.node_positions_x[str(edge.node1.id)]))
             edge.node1.y = int(torch.floor(model.node_positions_y[str(edge.node1.id)]))
 
             edge.node2.x = int(torch.floor(model.node_positions_x[str(edge.node2.id)]))
             edge.node2.y = int(torch.floor(model.node_positions_y[str(edge.node2.id)]))
+        """
