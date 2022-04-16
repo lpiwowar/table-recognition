@@ -38,11 +38,12 @@ if __name__ == "__main__":
     if not check_arguments(args):
         raise Exception("ERROR: Either --train, --infer or --data-preparation must be specified.")
 
-    config = Config(args.config_file)
-
     if args.data_preparation:
+        config = Config(args.config_file, task="data-preparation")
         data_preparation(config)
     elif args.train:
+        config = Config(args.config_file, task="train")
         Trainer(config)
     elif args.infer:
+        config = Config(args.config_file, task="infer")
         Infer(config)

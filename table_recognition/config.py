@@ -35,7 +35,7 @@ class Config(object):
     input_data_dir = ! <path to directory containing table images>
     """
 
-    def __init__(self, config_file_path):
+    def __init__(self, config_file_path, task):
         """
         The constructor of Config class.
 
@@ -43,6 +43,7 @@ class Config(object):
         """
 
         self.config_file_path = config_file_path
+        self.task = task
 
         # Dataset preparation
         self.ocr_output_path = None
@@ -128,13 +129,13 @@ class Config(object):
         else:
             raise Exception(f"ERROR: {self.config_file_path} does not exist!")
 
-        if "dataset-preparation":
+        if "data_preparation" in config_parser and self.task == "data-preparation":
             self.parse_dataset_preparation_section(config_parser)
 
-        if "train" in config_parser:
+        if "train" in config_parser and self.task == "train":
             self.parse_train_section(config_parser)
 
-        if "infer" in config_parser:
+        if "infer" in config_parser and self.task == "infer":
             self.parse_infer_section(config_parser)
 
         if "logging" in config_parser:
@@ -184,6 +185,7 @@ class Config(object):
         self.model_name = infer_config["model_name"]
         self.img_path = Config.validate_file(infer_config["img_path"], mandatory=False)
         self.ocr_output_path = Config.validate_file(infer_config["ocr_output_path"], mandatory=False)
+        self.visual_features = Config.validate_bool(infer_config["visual_features"], mandatory=False)
 
     def parse_train_section(self, config_parser):
         """
