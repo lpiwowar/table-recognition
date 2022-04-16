@@ -78,7 +78,8 @@ class Infer(object):
                 node_type = int(node_type.numpy())
                 id_to_node[id1].type = node_num_to_name[node_type]
 
-            edge_num_to_name = {0: "cell", 1: "horizontal", 2: "vertical", 3: "no-relationship"}
+            # TODO: Switch "horizontal" and "vertical" after get_edge_type() is fixed in output.py
+            edge_num_to_name = {0: "cell", 1: "vertical", 2: "horizontal", 3: "no-relationship"}
             for id1, id2, edge_type in zip(data.edge_index[0], data.edge_index[1], out_edges):
                 id1 = int(id1.numpy())
                 id2 = int(id2.numpy())

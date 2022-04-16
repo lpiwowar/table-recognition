@@ -107,7 +107,7 @@ class OutputGraphColorer(object):
 
         # Nodes are in the same column
         if node1_row_range <= node2_row_range or node2_row_range <= node1_row_range:
-            return "vertical"
+            return "vertical"  # TODO: This should be "horizontal"
             # if OutputGraphColorer.nodes_horizontally_visible(node1, node2):
             #     return "vertical"
             # else:
@@ -115,7 +115,7 @@ class OutputGraphColorer(object):
 
         # Nodes are in the same row
         if node1_col_range <= node2_col_range or node2_col_range <= node1_col_range:
-            return "horizontal"
+            return "horizontal"  # TODO: This should be "vertical"
             # if OutputGraphColorer.nodes_vertically_visible(node1, node2):
             #     return "horizontal"
             # else:
