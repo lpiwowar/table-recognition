@@ -9,8 +9,13 @@ class Node(object):
         if self.polygon_pts:
             self.bbox = self.calculate_node_bbox()
 
-        self.x = self.bbox["center"][0]
-        self.y = self.bbox["center"][1]
+        self.grid_x = self.bbox["center"][0]
+        self.grid_y = self.bbox["center"][1]
+        self.grid_bbox = self.bbox["corners"]
+        self.grid_row = None
+        self.grid_column = None
+        self.grid_colspan = 1
+        self.grid_rowspan = 1
 
         self.id = Node.NODE_COUNTER
         Node.NODE_COUNTER += 1
@@ -25,7 +30,7 @@ class Node(object):
         self.input_feature_vector = None
 
     def __repr__(self):
-        return f"<Node: rtree_id={self.id}>"
+        return f"(Node: {self.id})"
 
     def __eq__(self, other):
         return self.id == other.id
