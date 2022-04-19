@@ -134,7 +134,8 @@ def visualize_model_output(data, out_nodes, out_edges):
 def visualize_output_image(data, out_nodes, out_edges, visualize_path):
     data.cpu()
     out_edges.cpu()
-    
+    out_nodes.cpu()
+
     us = data.edge_index[0]
     vs = data.edge_index[1]
     color_edges = {
@@ -143,11 +144,16 @@ def visualize_output_image(data, out_nodes, out_edges, visualize_path):
         2: "orange",  # vertical
         3: "purple"
     }
+    color_nodes = {
+        0: (255, 0, 0),
+        1: (0, 0, 255)
+    }
     edges = [(int(u), int(v), color_edges[t]) for u, v, t in zip(us, vs, out_edges.cpu().numpy())]
 
     img = cv2.imread(data.img_path)
     for node_idx, node_attributes in enumerate(data.node_image_position):
-        cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=(255, 255, 255),
+        node_type = int(out_nodes[node_idx].numpy())
+        cv2.circle(img, (int(node_attributes[0]), int(node_attributes[1])), radius=10, color=color_nodes[node_type],
                    thickness=-1)
 
     for u, v, c in edges:
