@@ -86,9 +86,11 @@ class Config(object):
 
         # Infer section
         self.weights_path = None
+        self.weights_path_nodes = None
         self.model_name = None
         self.img_path = None
         self.ocr_output_path = None
+        self.html_output_dir = None
 
         # Logger
         self.logger = None
@@ -182,10 +184,12 @@ class Config(object):
 
         infer_config = config_parser["infer"]
         self.weights_path = Config.validate_file(infer_config["weights_path"])
+        self.weights_path_nodes = Config.validate_file(infer_config["weights_path_nodes"])
         self.model_name = infer_config["model_name"]
         self.img_path = Config.validate_file(infer_config["img_path"], mandatory=False)
         self.ocr_output_path = Config.validate_file(infer_config["ocr_output_path"], mandatory=False)
         self.visual_features = Config.validate_bool(infer_config["visual_features"], mandatory=False)
+        self.html_output_dir = infer_config["html_output_dir"]
 
     def parse_train_section(self, config_parser):
         """
