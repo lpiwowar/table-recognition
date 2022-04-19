@@ -29,6 +29,11 @@ class Infer(object):
         self.model.load_state_dict(torch.load(self.config.weights_path, map_location=torch.device(self.device)))
         self.model.eval()
 
+        self.model_nodes = self.available_models[self.config.model_name]()
+        self.model_nodes.load_state_dict(torch.load(self.config.weights_path_nodes,
+                                                    map_location=torch.device(self.device)))
+        self.model_nodes.eval()
+
         self.prepare_input()
 
     def prepare_input(self):
@@ -49,9 +54,12 @@ class Infer(object):
         # idx 61: super simple 759?
         # idx 77 : cTDaR_913
         # idx 43 : cTDaR_560
-        img_id = 57
-        # for image_name, ocr_output in tqdm(zip(images[img_id:img_id+1], ocr_output_path[img_id:img_id+1])):
-        for image_name, ocr_output in tqdm(zip(images[28:], ocr_output_path[28:])):
+        img_id = 21
+        for image_name, ocr_output in tqdm(zip(images[img_id:img_id+1], ocr_output_path[img_id:img_id+1])):
+        # for image_name, ocr_output in tqdm(zip(images, ocr_output_path)):
+            # print(f"{image_name} {counter}")
+            # counter += 1
+            # continue
             self.config.logger.info("Preparing graph representation of the input tables ...")
             graph = Graph(
                 config=self.config,
@@ -70,7 +78,8 @@ class Infer(object):
             data = torch.load(os.path.join(file_path))
 
             self.config.logger.info(f"Running image {data.img_path} through the model ...")
-            out_nodes, out_edges = self.model(data)
+            _, out_edges = self.model(data)
+            out_nodes, _ = self.model_nodes(data)
 
             self.config.logger.info(f"Creating table representation of the table in {data.img_path} image ...")
             out_nodes = torch.argmax(torch.exp(out_nodes), dim=1)
@@ -230,7 +239,6 @@ class Graph2Table(object):
         output_html += "            th\n"
         output_html += "            {\n"
         output_html += "                border: 3px solid black;\n"
-        output_html += "                background-color: rgb(255,230,204);"
         output_html += "                text-align: center;"
         output_html += "            }\n"
 
@@ -240,6 +248,9 @@ class Graph2Table(object):
         output_html += "                background-color: rgb(213,232,212);"
         output_html += "                text-align: center;"
         output_html += "            }\n"
+        output_html += "            td.header { background-color: rgb(255,230,204); }"
+        output_html += "            td.data { background-color: rgb(213,232,212); }"
+        output_html += "            td.empty { background-color: rgb(255,255,255); }"
 
         output_html += "        </style>\n"
         output_html += "    </head>\n"
@@ -266,12 +277,14 @@ class Graph2Table(object):
 
                     colspan = nodeid_to_node[current_value].grid_colspan
                     rowspan = nodeid_to_node[current_value].grid_rowspan
-                    output_html += f"<td colspan={colspan} rowspan={rowspan}>\n"
+
+                    node_type = nodeid_to_node[current_value].type
+                    output_html += f'<td class="{node_type}" colspan={colspan} rowspan={rowspan}>\n'
                     output_html += f"<img src={os.path.abspath(img_path)}>\n"
                     output_html += f"</td>\n"
                     table_grid[table_grid == current_value] = -2
                 elif current_value != -2:
-                    output_html += "<td>Empty</td>\n"
+                    output_html += f'<td class="empty">Empty</td>\n'
                 else:
                     continue
 
