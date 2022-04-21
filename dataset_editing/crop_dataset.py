@@ -6,13 +6,25 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from table_recognition.utils import coords_string_to_tuple_list, tuple_list_to_coords_string
 
-GT_DIR = "../dataset/cTDaR/ground_truth_renamed"
-IMAGE_DIR = "../dataset/cTDaR/image_jpg"
+def coords_string_to_tuple_list(coords_string: str) -> [(int, int)]:
+    str_2d_points = coords_string.split(" ")
+    return [(int(str_2d_point.split(",")[0]), int(str_2d_point.split(",")[1]))
+            for str_2d_point in str_2d_points]
 
-GT_DIR_OUTPUT = "../dataset/cTDaR/ground_truth_cropped"
-IMAGE_DIR_OUTPUT = "../dataset/cTDaR/image_cropped"
+
+def tuple_list_to_coords_string(tuple_list: [(int, int)]) -> str:
+    return " ".join([str(number_fst) + "," + str(number_nd)
+                     for number_fst, number_nd in tuple_list])
+
+# GT_DIR = "../dataset/cTDaR/ground_truth_renamed"
+GT_DIR = "/home/lpiwowar/master-thesis/dataset/ctdar-dataset-printed-gt"
+
+# IMAGE_DIR = "../dataset/cTDaR/image_jpg"
+IMAGE_DIR = "/home/lpiwowar/master-thesis/dataset/ctdar-dataset-printed-images"
+
+GT_DIR_OUTPUT = "/home/lpiwowar/master-thesis/dataset/ctdar-dataset-printed-gt-cut"
+IMAGE_DIR_OUTPUT = "/home/lpiwowar/master-thesis/dataset/ctdar-dataset-printed-images-cut"
 
 gt_files = os.listdir(GT_DIR)
 img_files = os.listdir(IMAGE_DIR)
@@ -43,7 +55,6 @@ def filter_out_polygon(img_name, polygon_pts):
     # save the result
     return image
 """
-
 
 def filter_out_polygon(img_name, polygon_pts):
     polygon_pts = [(abs(x), abs(y)) for x, y in polygon_pts]
@@ -85,7 +96,7 @@ def get_bbox(polygon_coords):
 
     return [(min_x, min_y), (min_x, max_y), (max_x, max_y), (max_x, min_y)]
 
-"""
+
 # Image cropping
 for gt_file in tqdm(gt_files):
     tree = ET.parse(os.path.join(GT_DIR, gt_file))
@@ -108,8 +119,9 @@ for gt_file in tqdm(gt_files):
             continue
 
         cv2.imwrite(os.path.join(IMAGE_DIR_OUTPUT, gt_file_prefix) + f"_table_{table_idx}.jpg", image)
-"""
 
+
+"""
 for gt_file in tqdm(gt_files):
     tree = ET.parse(os.path.join(GT_DIR, gt_file))
     tables = tree.findall("./table")
@@ -151,3 +163,4 @@ for gt_file in tqdm(gt_files):
 
         with open(os.path.join(GT_DIR_OUTPUT, gt_file_prefix) + f"_table_{table_idx}.xml", "w") as f:
             f.write(xml_string)
+"""
