@@ -101,14 +101,40 @@ class Infer(object):
                 edge_type = int(edge_type.numpy())
                 id_to_edge[(id1, id2)].type = edge_num_to_name[edge_type]
 
-            Graph2Table(graph, self.config, self.visualize_path)
+            # -- Remove no-relationship edges and run again ------------------------------------------------------------
+            """
+            graph.edges = [edge for edge in graph.edges if edge.type != "no-relationship"]
+            Graph2Table(graph, self.config, self.visualize_path, solo_cleanup=True)
 
-            graph.visualize()
-        exit(0)
+            data_edge_index = data.edge_index.T
+            edge_ids_to_keep = []
+            for edge_id, edge_index in enumerate(data_edge_index):
+                # is_not_no_relationship = [edge for edge in graph.edges if edge.connects(edge_index[0], edge_index[1])]
+                is_not_no_relationship = [edge for edge in graph.edges if edge.node1.id == edge_index[0] and edge.node2.id == edge_index[1]]
+                if is_not_no_relationship:
+                    edge_ids_to_keep += [edge_id]
+
+            data.edge_index = data_edge_index[edge_ids_to_keep].T
+            data.edge_attr = data.edge_attr[edge_ids_to_keep]
+            data.edge_image_regions = data.edge_image_regions[edge_ids_to_keep]
+
+            _, out_edges = self.model(data)
+            out_edges = torch.argmax(torch.exp(out_edges), dim=1)
+            id_to_edge = {(edge.node1.id, edge.node2.id): edge for edge in graph.edges}
+            for id1, id2, edge_type in zip(data.edge_index[0], data.edge_index[1], out_edges):
+                id1 = int(id1.numpy())
+                id2 = int(id2.numpy())
+                edge_type = int(edge_type.numpy())
+                id_to_edge[(id1, id2)].type = edge_num_to_name[edge_type]
+            """
+            # ----------------------------------------------------------------------------------------------------------
+            graph.visualize(img_destination=os.path.join(self.visualize_path, "before_" + image_name))
+
+            Graph2Table(graph, self.config, self.visualize_path, image_name)
 
 
 class Graph2Table(object):
-    def __init__(self, graph, config, visualize_path):
+    def __init__(self, graph, config, visualize_path, image_name, solo_cleanup=False):
         self.config = config
         self.graph = graph
         self.visualize_path = visualize_path
@@ -119,6 +145,9 @@ class Graph2Table(object):
         self.merge_cell()
         self.remove_symmetrical_edges()
         self.remove_transitive_edges()
+
+        if solo_cleanup:
+            return
         self.remove_isolated_nodes()
         # -----------------------------------------------------------------------------------------------
 
@@ -215,6 +244,7 @@ class Graph2Table(object):
         # -----------------------------------------------------------------------------------------------
 
         # -- Transform "gridified" graph to table ---------------------------------------------------------
+        graph.visualize(img_destination=os.path.join(self.visualize_path, "after_" + image_name))
         table_grid = self.generate_table_grid(self.nodeid_to_edge)
         self.generate_html(table_grid)
         # -----------------------------------------------------------------------------------------------
@@ -278,9 +308,10 @@ class Graph2Table(object):
                     colspan = nodeid_to_node[current_value].grid_colspan
                     rowspan = nodeid_to_node[current_value].grid_rowspan
 
+                    node_img_name = f"{current_value}.jpg"
                     node_type = nodeid_to_node[current_value].type
                     output_html += f'<td class="{node_type}" colspan={colspan} rowspan={rowspan}>\n'
-                    output_html += f"<img src={os.path.abspath(img_path)}>\n"
+                    output_html += f'<img src={node_img_name}>\n'
                     output_html += f"</td>\n"
                     table_grid[table_grid == current_value] = -2
                 elif current_value != -2:
@@ -290,13 +321,34 @@ class Graph2Table(object):
 
             output_html += "</tr>\n"
 
+        import shutil
+
+        shutil.copyfile(os.path.join(self.visualize_path, "before_" + self.graph.img_path.split("/")[-1]),
+                        os.path.join(output_dir_path, "before_" + self.graph.img_path.split("/")[-1]))
+        shutil.copyfile(os.path.join(self.visualize_path, "after_" + self.graph.img_path.split("/")[-1]),
+                        os.path.join(output_dir_path, "after_" + self.graph.img_path.split("/")[-1]))
+        shutil.copyfile(os.path.abspath(self.graph.img_path),
+                        os.path.join(output_dir_path, self.graph.img_path.split("/")[-1]))
+
         output_html += "        </table>\n"
-        output_html += f"            <img src={os.path.abspath(os.path.join(self.visualize_path, visualize_img_name))}>"
-        output_html += f"            <img src={os.path.abspath(os.path.abspath(self.graph.img_path))}>"
+        # output_html += f'            <img src={os.path.abspath(os.path.join(output_dir_path, "after_" + visualize_img_name))}>'
+        # output_html += f'            <img src={os.path.abspath(os.path.join(output_dir_path, "before_" + visualize_img_name))}>'
+        # output_html += f'            <img src={os.path.abspath(os.path.join(output_dir_path, visualize_img_name))}>'
+
+        src = "./after_" + self.graph.img_path.split("/")[-1]
+        output_html += f'            <img src={src}>'
+
+        src = "./before_" + self.graph.img_path.split("/")[-1]
+        output_html += f'            <img src={src}>'
+
+        src = "./" + self.graph.img_path.split("/")[-1]
+        output_html += f'            <img src={src}>'
+
+        # output_html += f"            <img src={os.path.abspath(os.path.join(self.visualize_path, visualize_img_name))}>"
+        # output_html += f"            <img src={os.path.abspath(os.path.abspath(self.graph.img_path))}>"
         output_html += "    </body>\n"
         output_html += "</html>\n"
 
-        print(self.graph.img_path)
         output_html_path = os.path.join(output_dir_path, f"{img_name_prefix}.html")
 
         with open(output_html_path, "w") as f:
@@ -308,6 +360,30 @@ class Graph2Table(object):
         table_grid = np.full((max_num_rows, max_num_columns), -1)
 
         # Calculate nodes col and row span
+        """
+        for node in self.graph.nodes:
+            nodes_edges = nodeid_to_edge[node.id]
+            nodes_vertical_neighbours = [edge for edge in nodes_edges if edge.type == "vertical"]
+            nodes_horizontal_neighbours = [edge for edge in nodes_edges if edge.type == "horizontal"]
+            print(nodes_horizontal_neighbours)
+            print(nodes_vertical_neighbours)
+            if nodes_vertical_neighbours:
+                max_grid_x = max([edge.get_connected_node(node.id).grid_x for edge in nodes_vertical_neighbours])
+                min_grid_x = min([edge.get_connected_node(node.id).grid_x for edge in nodes_vertical_neighbours])
+
+                # node.grid_x = min_grid_x
+                node.colspan = (max_grid_x - min_grid_x) + 1
+
+            if nodes_horizontal_neighbours:
+                max_grid_y = max([edge.get_connected_node(node.id).grid_y for edge in nodes_horizontal_neighbours])
+                min_grid_y = min([edge.get_connected_node(node.id).grid_y for edge in nodes_horizontal_neighbours])
+
+                # node.grid_y = min_grid_y
+                node.rowspan = (max_grid_y - min_grid_y) + 1
+
+            print(f"node_id: {node.id} grid_x: {node.grid_x} grid_y: {node.grid_y} colspan: {node.grid_colspan} rowspan: {node.grid_rowspan}")
+        """
+        """
         for node in self.graph.nodes:
             nodes_edges = nodeid_to_edge[node.id]
 
@@ -343,6 +419,7 @@ class Graph2Table(object):
                 node.grid_rowspan = new_rowspan
             # if len(nodes_edges_vertical_below):
             #     node.grid_colspan = len(nodes_edges_vertical_below)
+        """
 
         # Populate table grid with spanned cells
         for node in self.graph.nodes:
@@ -355,6 +432,7 @@ class Graph2Table(object):
 
         print(table_grid)
 
+        """
         # Expand span information to neighboring cells (horizontal)
         num_rows = table_grid.shape[0] - 1
         num_cols = table_grid.shape[1] - 1
@@ -372,16 +450,20 @@ class Graph2Table(object):
                 if below_cell_value != -1 and below_cell_value != -2:
                     if right_cell_value == -1 and below_cell_value == diagonal_cell_value:
                         table_grid[y, x+1] = current_value
-
+        """
+        """
         for node in self.graph.nodes:
             node.grid_rowspan = np.amax((table_grid == node.id).sum(axis=0))
             node.grid_colspan = np.amax((table_grid == node.id).sum(axis=1))
 
         print(table_grid)
-
+        """
         return table_grid
 
     def fall_vertical_cc(self):
+        if not self.vertical_ccs:
+            return
+
         self.vertical_ccs.sort(key=lambda item: item.x)
 
         # [[(start_row1, end_row1, Row1), (start_row2, end_row2, Row2)],
@@ -420,6 +502,9 @@ class Graph2Table(object):
         # print(columns)
 
     def fall_horizontal_cc(self):
+        if not self.horizontal_ccs:
+            return
+
         self.horizontal_ccs.sort(key=lambda item: item.y)
 
         # [[(start_column1, end_column1, Row1), (start_column2, end_column2, Row2)],
