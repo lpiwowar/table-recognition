@@ -52,7 +52,7 @@ class Trainer(object):
         # -- Source end: https://discuss.pytorch.org/t/finding-model-size/130275 ----
 
         if self.conf.preload_model:
-            self.model.load_state_dict(torch.load(self.conf.model_path))
+            self.model.load_state_dict(torch.load(self.conf.model_path, map_location=torch.device(self.device)))
 
         self.train_loader = TableDataset(config=self.conf, datatype="train")
         self.valid_loader = TableDataset(config=self.conf, datatype="valid")
