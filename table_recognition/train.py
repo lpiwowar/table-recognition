@@ -177,7 +177,7 @@ class Trainer(object):
 
         if load_model:
             self.conf.logger.info(f"Testing model with weights from {self.conf.model_path}.")
-            self.model.load_state_dict(torch.load(self.conf.model_path))
+            self.model.load_state_dict(torch.load(self.conf.model_path, map_location=torch.device('cpu')))
         else:
             self.conf.logger.info("Testing neural network with current weights.")
             
