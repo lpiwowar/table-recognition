@@ -81,7 +81,7 @@ class Graph(object):
     def color_input(self):
         self.input_graph_colorers[self.input_graph_colorer].color_graph()
 
-    def visualize(self):
+    def visualize(self, img_destination=None):
         colors = {
             "node": {
                 "header": (51, 204, 51),  # Green
@@ -93,8 +93,8 @@ class Graph(object):
                 None: (0, 0, 0)  # Black
             },
             "edge": {
-                "horizontal": (204, 0, 0),  # Red
-                "vertical": (153, 51, 255),  # Purple
+                "vertical": (204, 0, 0),  # Blue
+                "horizontal": (153, 51, 255),  # Purple
                 "cell": (0, 0, 204),  # Red
                 "no-relationship": (0, 0, 0)  # Black
             }
@@ -104,36 +104,34 @@ class Graph(object):
 
         # Visualize edges
         for edge in self.edges:
-            node1_center = edge.node1.bbox["center"]
-            node2_center = edge.node2.bbox["center"]
-            if edge.type != "no-relationship":
+            node1_center = [edge.node1.grid_x, edge.node1.grid_y]
+            node2_center = [edge.node2.grid_x, edge.node2.grid_y]
+            #if edge.type != "no-relationship":
+                # print(f"blublila: {colors['edge'][edge.type]} node1: {hex(id(edge.node1))} node2: {hex(id(edge.node2))}")
+            if edge.gridify_locked:
+                cv2.line(img, node1_center, node2_center, color=(0, 0, 255), thickness=3)
+            else:
                 cv2.line(img, node1_center, node2_center, color=colors["edge"][edge.type], thickness=3)
-
-            # edge_center = [(node1_center[0] + node2_center[0]) // 2, (node1_center[1] + node2_center[1]) // 2]
-            # cv2.putText(img, f"{edge.input_feature_vector[-1]:.2f}, {edge.input_feature_vector[-2]:.2f}", edge_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1,
-            #            cv2.LINE_AA)
-
+            #else:
+            #    pass
 
         # Visualize nodes
         for node in self.nodes:
-            # Visualize text line region
-            node_coords = node.bbox["corners"]
-            cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=2)
-
-            # Visualize node
-            cv2.circle(img, node.bbox["center"], radius=10, color=colors["node"][node.type], thickness=-1)
-            cv2.putText(img, f"{node.id}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+            cv2.circle(img, [node.grid_x, node.grid_y], radius=3, color=colors["node"][node.type], thickness=-1)
+            # cv2.putText(img, f"[{node.x}, {node.y}]", [node.x, node.y], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
+            cv2.putText(img, f"{node.id}", [node.grid_x, node.grid_y], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
                         cv2.LINE_AA)
-
+            cv2.rectangle(img, node.grid_bbox[0], node.grid_bbox[1], color=(255, 0, 0), thickness=2)
         # Visualize GT cells
-        for node in self.ground_truth_nodes:
-             node_coords = node.bbox["corners"]
-             cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=3)
-             # cv2.putText(img, f"({node.start_col} {node.end_col}) ({node.start_row} {node.end_row})", (node.bbox["center"][0] - 10, node.bbox["center"][1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
-             #            cv2.LINE_AA)
+        # for node in self.ground_truth_nodes:
+        #     node_coords = node.bbox["corners"]
+        #     cv2.rectangle(img, node_coords[0], node_coords[1], color=colors["node"][node.type], thickness=3)
 
-        img_name = "graph_" + self.img_path.split("/")[-1]
-        cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
+        if not img_destination:
+            img_name = "graph_" + self.img_path.split("/")[-1]
+            cv2.imwrite(os.path.join(self.config.visualize_dir, img_name), img)
+        else:
+            cv2.imwrite(img_destination, img)
 
     def dump(self):
         # Collect node input attributes

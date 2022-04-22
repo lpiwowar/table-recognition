@@ -87,7 +87,7 @@ class NodeVisibility(object):
         edges = {edge for edge in edges if not edge.is_reflexive()}
 
     def discover_edges(self):
-        PROCESSING = "seq"
+        PROCESSING = ""
         if PROCESSING == "seq":
             global_edges = []
             self.discover_edges_subprocess(global_edges, 0, len(self.graph.nodes))
@@ -197,9 +197,13 @@ class NodeVisibility(object):
         """Generate 2D-array in which each pixels says id of node it represents"""
         render_image = np.zeros((self.img_h, self.img_w))
         for node in self.graph.nodes:
+            # print(f"node.id: {node.id} bbox: {node.bbox['rtree']}")
             (min_x, min_y, max_x, max_y) = node.bbox["rtree"]
+            (min_x, min_y, max_x, max_y) = (max(0, min_x), max(0, min_y), max(0, max_x), max(0, max_y))
             render_image[min_y:max_y, min_x:max_x] = node.id + 1   # Beware: This is here because of np.nonzero()
             cv2.putText(render_image, f"{node.id + 1}", node.bbox["center"], cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1,
                         cv2.LINE_AA)
 
+        # cv2.imshow("test", render_image)
+        # cv2.waitKey(0)
         return render_image
