@@ -140,8 +140,18 @@ class Config(object):
         if "infer" in config_parser and self.task == "infer":
             self.parse_infer_section(config_parser)
 
+        if "evaluate" in config_parser and self.task == "evaluate":
+            self.parse_evaluate_section(config_parser)
+
         if "logging" in config_parser:
             self.parse_logging_section(config_parser)
+
+    def parse_evaluate_section(self, config_parser):
+        evaluate_section = config_parser["evaluate"]
+        self.infer_xml_output = evaluate_section["infer_xml_output"]
+        self.infer_xml_output_type = evaluate_section["infer_xml_output_type"]
+        self.gt_xml = evaluate_section["gt_xml"]
+        self.gt_xml_type = evaluate_section["gt_xml_type"]
 
     def parse_logging_section(self, config_parser):
         log_level = config_parser["logging"]["log_level"]

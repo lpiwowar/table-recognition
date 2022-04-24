@@ -4,6 +4,7 @@ from table_recognition.config import Config
 from table_recognition.data_preparation import data_preparation
 from table_recognition import Trainer
 from table_recognition import Infer
+from table_recognition import evaluate
 
 
 def check_arguments(arg):
@@ -16,7 +17,7 @@ def check_arguments(arg):
     :return:     True when valid combination of arguments is used
                  False otherwise
     """
-    return not (not arg.train ^ arg.infer) ^ arg.data_preparation
+    return (not (not arg.train ^ arg.infer) ^ arg.data_preparation) ^ args.evaluate
 
 
 if __name__ == "__main__":
@@ -29,6 +30,9 @@ if __name__ == "__main__":
                         action="store_true")
     parser.add_argument("--data-preparation",
                         help="Prepare dataset for training (--config-file required)",
+                        action="store_true")
+    parser.add_argument("--evaluate",
+                        help="Evaluate performance of the model",
                         action="store_true")
     parser.add_argument("--config-file",
                         help="Path to configuration file",
@@ -47,3 +51,6 @@ if __name__ == "__main__":
     elif args.infer:
         config = Config(args.config_file, task="infer")
         Infer(config)
+    elif args.evaluate:
+        config = Config(args.config_file, task="evaluate")
+        evaluate(config)
