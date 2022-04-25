@@ -301,6 +301,7 @@ class Graph2Table(object):
                 current_value = table_grid[row_idx, column_idx]
                 if current_value != -1 and current_value != -2:
                     [(min_x, min_y), (max_x, max_y)] = nodeid_to_node[current_value].grid_bbox
+                    [(min_x, min_y), (max_x, max_y)] = [(max(0, min_x), max(0, min_y)), (max(0, max_x), max(0, max_y))]
                     img_region = img[min_y:max_y, min_x:max_x]
                     img_path = os.path.join(output_dir_path, f"{current_value}.jpg")
                     cv2.imwrite(img_path, img_region)
