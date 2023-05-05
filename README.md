@@ -6,7 +6,9 @@ model.
 
 Video 🎞️
 --------
-[![Masters Thesis - Table Recognition](http://img.youtube.com/vi/x_FXpi2wP14/0.jpg)](http://www.youtube.com/watch?v=x_FXpi2wP14 "Masters Thesis - Table Recognition")
+<p align="center">
+<img src="http://img.youtube.com/vi/x_FXpi2wP14/0.jpg">
+</p>
 
 Requirements
 ------------
