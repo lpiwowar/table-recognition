@@ -1,7 +1,12 @@
 Table recognition 🧠
 ====================
+
 This repository contains a code for training and using a table recognition
 model. 
+
+Video 🎞️
+--------
+[![Masters Thesis - Table Recognition](http://img.youtube.com/vi/x_FXpi2wP14/0.jpg)](http://www.youtube.com/watch?v=x_FXpi2wP14 "Masters Thesis - Table Recognition")
 
 Requirements
 ------------
