@@ -7,7 +7,7 @@ model.
 Video 🎞️
 --------
 <p align="center">
-<img src="http://img.youtube.com/vi/x_FXpi2wP14/0.jpg">
+<a href="https://youtu.be/x_FXpi2wP14"><img src="http://img.youtube.com/vi/x_FXpi2wP14/0.jpg"></a>
 </p>
 
 Requirements
